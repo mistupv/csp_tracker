@@ -1,0 +1,20 @@
+--Example 1
+
+channel a,b,end_,valid,not_valid,s0,s1,s2
+
+MAIN = ((FSM(0) [|{|a,b|}|] INPUT) [|{|end_|}|] CHECK(s0)) \ {|end_|} 
+
+FSM(0) = a!s1 -> FSM(1) [] b!s2 -> FSM(2)
+
+FSM(1) = a!s1 -> FSM(1) [] b!s2 -> FSM(2)
+
+FSM(2) = a!s0 -> FSM(0) [] b!s0 -> FSM(0)
+
+INPUT = a?state1:{s0,s1,s2} -> b?state2:{s0,s1,s2} ->
+        b?state3:{s0,s1,s2} -> a?state4:{s0,s1,s2} -> 
+        b?state5:{s0,s1,s2} -> end_!state5 -> STOP
+
+CHECK(fin) = end_?st:{s0,s1,s2} -> (if st==fin then (valid -> SKIP) 
+                                               else (not_valid -> SKIP))
+
+

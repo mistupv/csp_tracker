@@ -1,0 +1,6 @@
+--Example 2
+channel a,b
+
+MAIN = ((b -> SKIP) [[b <- a]]) [|{|a,b|}|] (P [] b -> SKIP)
+
+P = (a -> SKIP) ; SKIP 
