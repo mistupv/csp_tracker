@@ -1,7 +1,14 @@
 CSP-Tracker: Generator of CSP tracks
 =================================
 
-Pending 1
+CSP-Tracker implements a CSP interpreter with a tracker.
+The interpreter executes a CSP specification and simultaneously produces the track associated to the performed derivation.
+
+CSP-Tracker incorporates mechanisms to produce colored graphs that represent the tracks in a very intuitive way.
+CSP-Tracker can generate the track of a (partial) derivation until it finishes or is stopped. This is specially useful for the analysis of non-termination.
+In CSP-Tracker, the tracking process is completely automatic.
+Once the user has loaded a CSP specification, she can (automatically) produce a derivation and the tool internally generates the associated track.
+Both the track and the trace can be stored in a file, or displayed in the screen by generating [Graphviz](http://www.graphviz.org/) graphs.
 
 Getting CSP-Tracker
 ----------------
@@ -21,23 +28,18 @@ Compiling CSP-Tracker
 -------------
 
 The CSP-Tracker is written in Erlang, so you will need an Erlang
-system installed in you computer. To compile the CSP-Tracker source first move to the source
-directory of the repository (for example /home/john/git/csp_tracker/src) and compile all files:
+system installed in you computer. To compile the CSP-Tracker source first move to the main directory of the repository (for example /home/john/git/csp_tracker/csp_tracker) and compile all files:
 
-    $ erlc *.erl
+	$ erlc *.erl
     1> 
 
-Write the following commands to compile, load and run the compiler and 
-installer: 
+Then, move the binaries to this directory according to your OS. For instance, if it is Mac OsX:
 
-    1> c(edd_comp).
-    {ok,edd_comp}
-    2> edd_comp:compile().
-    ok
+	$ mv bin_macos/* .
 
-The 'edd_comp:compile()' function simply automates the process. The files 
-src/smerl.erl, src/edd_lib.erl and src/edd.erl will be compiled into the 'ebin' 
-directory, and the edoc documentation will be generated into the folder 'edoc'.
+After this two steps, CSP-Tracker is ready to be used.
+
+
 
 
 
