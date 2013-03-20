@@ -44,7 +44,7 @@ After this two steps, CSP-Tracker is ready to be used.
 Using CSP-Tracker
 -------------
 
-First of all, you need to write down your CSP specification using the syntax used by [ProB](http://www.stups.uni-duesseldorf.de/ProB/index.php5/CSP-M_Syntax). You can find some examples in the '[examples](https://github.com/mistupv/csp_tracker/csp_tracker/examples)' directory, and in our [web interface](http://kaz.dsic.upv.es/csp_tracker.html).
+First of all, you need to write down your CSP specification using the syntax used by [ProB](http://www.stups.uni-duesseldorf.de/ProB/index.php5/CSP-M_Syntax). You can find some examples in the directory '[examples](https://github.com/mistupv/csp_tracker/tree/master/csp_tracker/examples)', and also in our [web interface](http://kaz.dsic.upv.es/csp_tracker.html).
 
 
 
