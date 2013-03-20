@@ -46,9 +46,83 @@ Using CSP-Tracker
 
 First of all, you need to write down your CSP specification using the syntax used by [ProB](http://www.stups.uni-duesseldorf.de/ProB/index.php5/CSP-M_Syntax). You can find some examples in the directory '[examples](https://github.com/mistupv/csp_tracker/tree/master/csp_tracker/examples)', and also in our [web interface](http://kaz.dsic.upv.es/csp_tracker.html).
 
+In order to execute and generate the track of a CSP specification into a file, move or create this file to the the main directory (for example /home/john/git/csp_tracker/csp_tracker), and run erlang from there.
+
+	$erl
+	....
+	1>
+
+Then suppose that we want to generate the track of '[ex2.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex2.csp)', we should call funciton track of module '[csp_tracker](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/csp_tracker.erl)'.
+
+	1> csp_tracker:track('ex2.csp').
+	Creating the Erlang representation of the CSP file...
+	...
+	Created.
+
+	-> START_TRACE
+
+	   tau -> Call to process MAIN
+	   tau -> Call to process P
+	a
+	   tau
+	   tau
+	   tau
+	   tick
+
+	<- FINISH_TRACE
 
 
+After the execution, a file called 'track.dot' will be created in the directory. If you have installed [Graphviz](http://www.graphviz.org/), a equivalent pdf file will be created. Both files represent the track of the specification.
+
+If we are not interested in the internal events occurring during the execution, we can call the same function, but with an option indicating our preferences.
+
+	2> csp_tracker:track('ex2.csp',[only_externals]).
+	Creating the Erlang representation of the CSP file...
+	...
+	Created.
+
+	-> START_TRACE
+
+	a
+
+	<- FINISH_TRACE
+
+Some specification produce a deadlock, and our tool will stop them automatically. For instance, using '[ex1.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex1.csp)':
 
 
+	3> csp_tracker:track('ex1.csp',[only_externals]).
+	Creating the Erlang representation of the CSP file...
+	...
+	Created.
+
+	-> START_TRACE
+
+	a.s1
+	b.s2
+	b.s0
+	a.s1
+	b.s2
+	not_valid
+
+	<- STOPPED_TRACE (deadlock)
 
 
+Finally, when the specification produces an infinity computation, we can define a timeout to stop automatically this execution. This is the case of '[fsm.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/fsm.csp)'. Let say that we want to execute it during 5 seconds.
+
+
+	4> csp_tracker:track('fsm.csp',[only_externals,5000]).
+	Creating the Erlang representation of the CSP file...
+	...
+	Created.
+
+	-> START_TRACE
+
+	a
+	b
+	b
+	...
+	a
+	a
+	a
+
+	Timeout.

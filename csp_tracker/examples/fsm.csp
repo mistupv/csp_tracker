@@ -1,0 +1,7 @@
+channel a, b
+
+MAIN = FSM0
+
+FSM0 = a -> FSM1 [] b -> FSM2
+FSM1 = a -> FSM1 [] b -> FSM2
+FSM2 = a -> FSM0 [] b -> FSM0
