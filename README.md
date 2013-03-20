@@ -10,6 +10,8 @@ In CSP-Tracker, the tracking process is completely automatic.
 Once the user has loaded a CSP specification, she can (automatically) produce a derivation and the tool internally generates the associated track.
 Both the track and the trace can be stored in a file, or displayed in the screen by generating [Graphviz](http://www.graphviz.org/) graphs.
 
+You can try it online [here](http://kaz.dsic.upv.es/csp_tracker.html).
+
 Getting CSP-Tracker
 ----------------
 The code of CSP-Tracker is contained in a GIT repository on GitHub. The URL is 
@@ -39,6 +41,10 @@ Then, move the binaries to this directory according to your OS. For instance, if
 
 After this two steps, CSP-Tracker is ready to be used.
 
+Using CSP-Tracker
+-------------
+
+Pending
 
 
 
