@@ -21,7 +21,7 @@ Compiling CSP-Tracker
 -------------
 
 The CSP-Tracker is written in Erlang, so you will need an Erlang
-system installed in you computer. To compile the CSP-Tracker source first move to the
+system installed in you computer. To compile the CSP-Tracker source first move to the source
 directory of the repository (for example /home/john/git/csp_tracker/src) and compile all files:
 
     $ erlc *.erl
