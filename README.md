@@ -18,7 +18,7 @@ The code of CSP-Tracker is contained in a GIT repository on GitHub. The URL is
 https://github.com/mistupv/csp_tracker
 
 To get a copy of the repository you only have to write in your Linux/MacOS 
-console:
+terminal:
 
     $ git clone https://github.com/mistupv/csp_tracker
 
@@ -44,7 +44,7 @@ After this two steps, CSP-Tracker is ready to be used.
 Using CSP-Tracker
 -------------
 
-Pending
+First of all, you need to write down your CSP specification using the syntax used by [ProB](http://www.stups.uni-duesseldorf.de/ProB/index.php5/CSP-M_Syntax). You can find some examples in the '[examples](https://github.com/mistupv/csp_tracker/csp_tracker/examples)' directory, and in our [web interface](http://kaz.dsic.upv.es/csp_tracker.html).
 
 
 
