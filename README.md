@@ -52,9 +52,9 @@ In order to execute and generate the track of a CSP specification into a file, m
 	....
 	1>
 
-Then suppose that we want to generate the track of '[ex2.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex2.csp)', we should call funciton track of module '[csp_tracker](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/csp_tracker.erl)'.
+Then suppose that we want to generate the track of '[ex3.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex3.csp)', we should call funciton track of module '[csp_tracker](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/csp_tracker.erl)'.
 
-	1> csp_tracker:track('ex2.csp').
+	1> csp_tracker:track('ex3.csp').
 	Creating the Erlang representation of the CSP file...
 	...
 	Created.
@@ -76,7 +76,7 @@ After the execution, a file called 'track.dot' will be created in the directory.
 
 If we are not interested in the internal events occurring during the execution, we can call the same function, but with an option indicating our preferences.
 
-	2> csp_tracker:track('ex2.csp',[only_externals]).
+	2> csp_tracker:track('ex3.csp',[only_externals]).
 	Creating the Erlang representation of the CSP file...
 	...
 	Created.
@@ -107,10 +107,10 @@ Some specification produce a deadlock, and our tool will stop them automatically
 	<- STOPPED_TRACE (deadlock)
 
 
-Finally, when the specification produces an infinity computation, we can define a timeout to stop automatically this execution. This is the case of '[fsm.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/fsm.csp)'. Let say that we want to execute it during 5 seconds.
+Finally, when the specification produces an infinity computation, we can define a timeout to stop automatically this execution. This is the case of '[ex6.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex6.csp)'. Let say that we want to execute it during 5 seconds.
 
 
-	4> csp_tracker:track('fsm.csp',[only_externals,5000]).
+	4> csp_tracker:track('ex6.csp',[only_externals,5000]).
 	Creating the Erlang representation of the CSP file...
 	...
 	Created.
@@ -119,10 +119,8 @@ Finally, when the specification produces an infinity computation, we can define 
 
 	a
 	b
-	b
 	...
 	a
-	a
-	a
+	b
 
 	Timeout.

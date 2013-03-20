@@ -1,4 +1,4 @@
---Example 2
+--Example 3
 channel a,b
 
 MAIN = ((b -> SKIP) [[b <- a]]) [|{|a,b|}|] (P [] b -> SKIP)

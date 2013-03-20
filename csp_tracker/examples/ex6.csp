@@ -1,0 +1,8 @@
+--Example 6
+channel a,b
+
+MAIN = P [|{|a|}|] Q
+
+P = a -> Q
+
+Q = a -> b -> P
