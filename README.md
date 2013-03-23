@@ -10,12 +10,11 @@ In CSP-Tracker, the tracking process is completely automatic.
 Once the user has loaded a CSP specification, she can (automatically) produce a derivation and the tool internally generates the associated track.
 Both the track and the trace can be stored in a file, or displayed in the screen by generating [Graphviz](http://www.graphviz.org/) graphs.
 
-You can also try it online [here](http://kaz.dsic.upv.es/csp_tracker.html).
+You can also try our tool [online](http://kaz.dsic.upv.es/csp_tracker.html).
 
 Getting CSP-Tracker
 ----------------
-The code of CSP-Tracker is distributed through a GIT repository on GitHub. The URL is 
-https://github.com/mistupv/csp_tracker
+The code of CSP-Tracker is distributed through a GIT repository on GitHub.
 
 To get a copy of the repository you only have to type the following command in your Linux/MacOS 
 terminal:
@@ -38,7 +37,7 @@ Then, move the binaries to this directory according to your OS. For instance, if
 
 	$ mv bin_macos/* .
 
-After this two steps, CSP-Tracker is ready to be used.
+After this simple two steps, CSP-Tracker is ready to be used.
 
 Using CSP-Tracker
 -------------
@@ -71,7 +70,7 @@ Then, suppose that we want to generate the track of '[ex3.csp](https://github.co
 	<- FINISH_TRACE
 
 
-After the execution, a file called 'track.dot' will be created in the directory. If you have installed [Graphviz](http://www.graphviz.org/), a equivalent pdf file will be created. Both files represent the track of the specification with a different format.
+After the execution, a file called 'track.dot' will be created in the directory. If you have installed [Graphviz](http://www.graphviz.org/), an equivalent pdf file will be created. Both files represent the track of the specification with a different format.
 
 If we are not interested in the internal events occurring during the execution, we can call the same function, but with an option indicating our preferences.
 
@@ -86,7 +85,7 @@ If we are not interested in the internal events occurring during the execution, 
 
 	<- FINISH_TRACE
 
-Some specifications produce a deadlock, and our tool will stop them automatically when the deadlock is detected. For instance, using '[ex1.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex1.csp)':
+Some specifications produce a deadlock, and our tool will stop their execution automatically when the deadlock is detected. For instance, using '[ex1.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex1.csp)':
 
 
 	3> csp_tracker:track('ex1.csp',[only_externals]).
