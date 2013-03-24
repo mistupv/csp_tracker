@@ -33,7 +33,7 @@ system installed in you computer. To compile the CSP-Tracker' sources, first mov
 	$ erlc *.erl
     1> 
 
-Then, move the binaries to this directory according to your OS. For instance, if it is Mac OsX:
+Then, move the binaries (from [ProB](http://www.stups.uni-duesseldorf.de/ProB/)) to this directory according to your OS. For instance, if it is Mac OsX:
 
 	$ mv bin_macos/* .
 
