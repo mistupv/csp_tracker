@@ -28,7 +28,7 @@ Compiling CSP-Tracker
 ----------------
 
 CSP-Tracker is written in Erlang, so you will need an Erlang
-system installed in you computer. To compile the CSP-Tracker' sources, first move to the main directory of the repository (for instance /home/john/git/csp_tracker/csp_tracker) and type *make*:
+system installed in you computer. To compile the CSP-Tracker' sources, first move to the main directory of the repository (for instance /home/john/git/csp_tracker) and type *make*:
 
 	$ make
 	erlc csp_tracker_loader.erl
@@ -43,7 +43,7 @@ After this simple two steps, CSP-Tracker is ready to be used.
 Using CSP-Tracker
 -------------
 
-First of all, you need to write down your CSP specification using the syntax used by [ProB](http://www.stups.uni-duesseldorf.de/ProB/index.php5/CSP-M_Syntax). You can find some examples in the directory '[examples](https://github.com/mistupv/csp_tracker/tree/master/csp_tracker/examples)', in the '[benchmark](https://github.com/mistupv/csp_tracker/tree/master/csp_tracker/bench)' suite directory and also in our [web interface](http://kaz.dsic.upv.es/csp_tracker.html).
+First of all, you need to write down your CSP specification using the syntax used by [ProB](http://www.stups.uni-duesseldorf.de/ProB/index.php5/CSP-M_Syntax). You can find some examples in the directory '[examples](https://github.com/mistupv/csp_tracker/tree/master/examples)', in the '[benchmark](https://github.com/mistupv/csp_tracker/tree/master/bench)' suite directory and also in our [web interface](http://kaz.dsic.upv.es/csp_tracker.html).
 
 In order to execute and generate the track of a CSP specification into a file the first step is to run Erlang with the following command from the main directory of the reposirtory.
 
@@ -51,7 +51,7 @@ In order to execute and generate the track of a CSP specification into a file th
 	....
 	1>
 
-Then, suppose that we want to generate the track of '[ex3.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex3.csp)', we should call function track/2 of module '[csp_tracker](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/csp_tracker.erl)' with first argument the CSP specification to be tracked and as second argument the initial process.
+Then, suppose that we want to generate the track of '[ex3.csp](https://github.com/mistupv/csp_tracker/blob/master/examples/ex3.csp)', we should call function track/2 of module '[csp_tracker](https://github.com/mistupv/csp_tracker/blob/master/src/csp_tracker.erl)' with first argument the CSP specification to be tracked and as second argument the initial process.
 
 	1> csp_tracker:track('examples/ex3.csp', 'MAIN').
 	Creating the Erlang representation of the CSP file...
@@ -95,7 +95,7 @@ If we are not interested in the internal events occurring during the execution, 
 
 	<- FINISH_TRACE
 
-Some specifications produce a deadlock, and our tool will stop their execution automatically when the deadlock is detected. For instance, using '[ex1.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex1.csp)':
+Some specifications produce a deadlock, and our tool will stop their execution automatically when the deadlock is detected. For instance, using '[ex1.csp](https://github.com/mistupv/csp_tracker/blob/master/examples/ex1.csp)':
 
 
 	3> csp_tracker:track('ex1.csp','MAIN',[only_externals]).
@@ -115,7 +115,7 @@ Some specifications produce a deadlock, and our tool will stop their execution a
 	<- STOPPED_TRACE (deadlock)
 
 
-Finally, when the specification produces an infinite computation, we can define a timeout to stop automatically this execution. This is the case of '[ex6.csp](https://github.com/mistupv/csp_tracker/blob/master/csp_tracker/examples/ex6.csp)'. Assume that we want to execute it during 5 miliseconds.
+Finally, when the specification produces an infinite computation, we can define a timeout to stop automatically this execution. This is the case of '[ex6.csp](https://github.com/mistupv/csp_tracker/blob/master/examples/ex6.csp)'. Assume that we want to execute it during 5 miliseconds.
 
 
 	4> csp_tracker:track('ex6.csp','MAIN',[only_externals,5]).
