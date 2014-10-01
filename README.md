@@ -84,7 +84,7 @@ After the execution, a file called 'track.dot' will be created in the directory.
 
 If we are not interested in the internal events occurring during the execution, we can call the same function, but with an option indicating our preferences.
 
-	2> csp_tracker:track('ex3.csp','MAIN',[only_externals]).
+	2> csp_tracker:track('examples/ex3.csp','MAIN',[only_externals]).
 	Creating the Erlang representation of the CSP file...
 	...
 	Created.
@@ -98,7 +98,7 @@ If we are not interested in the internal events occurring during the execution, 
 Some specifications produce a deadlock, and our tool will stop their execution automatically when the deadlock is detected. For instance, using '[ex1.csp](https://github.com/mistupv/csp_tracker/blob/master/examples/ex1.csp)':
 
 
-	3> csp_tracker:track('ex1.csp','MAIN',[only_externals]).
+	3> csp_tracker:track('examples/ex1.csp','MAIN',[only_externals]).
 	Creating the Erlang representation of the CSP file...
 	...
 	Created.
@@ -118,7 +118,7 @@ Some specifications produce a deadlock, and our tool will stop their execution a
 Finally, when the specification produces an infinite computation, we can define a timeout to stop automatically this execution. This is the case of '[ex6.csp](https://github.com/mistupv/csp_tracker/blob/master/examples/ex6.csp)'. Assume that we want to execute it during 5 miliseconds.
 
 
-	4> csp_tracker:track('ex6.csp','MAIN',[only_externals,5]).
+	4> csp_tracker:track('examples/ex6.csp','MAIN',[only_externals,5]).
 	Creating the Erlang representation of the CSP file...
 	...
 	Created.
