@@ -18,7 +18,7 @@
 -- SOURCE CODE 
 -----------------------------------------------------------------------------------------
 channel operation, answer, cuo, cui, alu, working, result: {0..3}
-channel shift, deq, empty
+channel shift, deq, emptyq
 channel enq, next, left, right, comm: {0..3}
 
 --============================
@@ -28,7 +28,7 @@ channel enq, next, left, right, comm: {0..3}
 --	enq!<item>	enqueue item
 --	deq		    dequeue item, followed by:
 --	  next?x	  next item returned, or
---	  empty		  empty queue indication
+--	  emptyq		  emptyq queue indication
 --============================
 CELL = left?x -> shift -> right!x -> CELL
 
@@ -39,7 +39,7 @@ Queue = (DQ(0) [|{|left, right, shift|}|] BUFF)\{|left, right, shift|}
 DQ(2) = deq -> shift -> X(2)
 
 DQ(i) = enq?x -> (left!x -> shift-> DQ(i+1))
-	   [] deq -> (if (i==0) then empty -> DQ(0) 
+	   [] deq -> (if (i==0) then emptyq -> DQ(0) 
 			      else X(i))
 
 X(i) = right?y -> (next!y -> DQ(i-1))
@@ -77,7 +77,7 @@ Sched_idle = alu?proc -> cui!proc -> Sched_busy
 Sched_busy = cuo?proc -> (result.proc -> Sched_check)
 	      [] alu?proc -> enq!proc -> Sched_busy
 
-Sched_check = deq -> (empty -> Sched_idle
+Sched_check = deq -> (emptyq -> Sched_idle
                      [] next?proc -> cui!proc -> Sched_busy)
 
 --============================
@@ -85,7 +85,7 @@ Sched_check = deq -> (empty -> Sched_idle
 --
 -- Interface: (see Sched)
 --============================
-CPU = (Sched [|{|enq,deq,next,empty|}|] Queue)
+CPU = (Sched [|{|enq,deq,next,emptyq|}|] Queue)
 	  [|{|cui,cuo|}|]
       (CU [|{|operation,answer|}|] ALU)
 
