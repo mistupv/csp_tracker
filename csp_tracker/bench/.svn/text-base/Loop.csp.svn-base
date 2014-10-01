@@ -1,0 +1,35 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- closedloop.csp
+--
+-- AUTHORS: 	Dusko S. Jovanovic
+-- DATE:        2006           
+-- PUBLISHED:     
+--				Dusko S. Jovanovic                       
+--				Designing dependable process-oriented software: a CSP-based approach.
+--              Centre for Telematics and Information Technology (CTIT).
+--				University of Twente. Netherlands.
+--              CTIT Ph.D.-thesis series No. 06-82, pp. 114-117, 2006.
+-- DESCRIPTION
+-- This example describes a basic closed loop system. The loop controller manages 
+-- on basis of the setpoint reference from a sequence controller and feedback signal  
+-- from a controlled object the steering values to the controlled object.
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------
+-- SOURCE CODE
+-----------------------------------------------------------------------------------------
+
+datatype Double = step_val | p_val | x_val
+channel steering : Double
+channel reference : Double
+channel state : Double
+
+ParClosedLoop = LoopConProcess [| {|reference, steering, state|} |] (SeqConProcess ||| PlantDynProcess)
+
+SeqConProcess = reference!step_val -> SeqConProcess
+
+LoopConProcess = reference?sp -> state?mv -> steering!p_val -> LoopConProcess
+
+PlantDynProcess = state!x_val -> steering?u -> PlantDynProcess

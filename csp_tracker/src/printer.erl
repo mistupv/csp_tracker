@@ -1,86 +1,135 @@
 -module(printer).
 
--export([loop/1,nonid_loop/0,string_arguments/1]).
+-export([loop/2,nonid_loop/0,string_arguments/1,add_to_file/2]).
 
 
-loop(Option) ->
+loop(Option,LiveSaving) ->
 	register(nonid, spawn(printer,nonid_loop,[])),
 	case Option of
-	     only_externals -> loop(0,false);
-	     _ -> loop(0,true)
+	     only_externals -> loop(0,false,LiveSaving,{{0,0,0,0},"",""});
+	     all -> loop(0,true,LiveSaving,{{0,0,0,0},"",""})
 	end.
 
-loop(Free,PrintInternals) ->
+%The functionality for showing non-executed code has been diasabled. In order to activate it again uncomment lines add_to_file and remove_from_file from the no_ided messages services. 
+loop(Free,PrintInternals,LiveSaving,State) ->
 	receive
 		{print,Event,Pid} -> 
-		        case PrintInternals of
-		             true ->
-		               	print_event(Event);
-		             false ->
-		             	case atom_to_list(Event) of
-		             	     [$ ,$ ,$ ,$t,$a,$u|_] -> ok;
-		             	     [$ ,$ ,$ ,$t,$i,$c,$k|_] -> ok;
-		             	     _ -> print_event(Event)
-		             	end
-		        end,
+				EventTrace = 
+			        case PrintInternals of
+			             true ->
+			               	print_event(Event);
+			             false ->
+			             	case atom_to_list(Event) of
+			             	     [$ ,$ ,$ ,$t,$a,$u|_] -> "";
+			             	     [$ ,$ ,$ ,$t,$i,$c,$k|_] -> "";
+			             	     _ -> print_event(Event)
+			             	end
+			        end,
+			    {InfoGraph,G,Trace} = State,
+			    NTrace = 
+				    case LiveSaving of 
+				    	true -> 
+				    		io:format("~s",[EventTrace]),
+				    		Trace;
+				    	false ->
+				    		Trace ++ EventTrace
+				    end,
 			Pid!{printed,Event},
-			loop(Free,PrintInternals);
+			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
 %		{no_print,Event,Pid} -> 
 %			Pid!{no_printed,Event,io_lib:format("~p\n",[Event])},
 %			loop(Free);
 		{print_sync,NodeA,NodeB,Pid} ->
 		     Pid!{printed_sync,NodeA,NodeB},
-		     add_to_file(integer_to_list(NodeA)++" -> "++integer_to_list(NodeB)
-	                  ++"[style=dotted, color=red, arrowhead=none,constraint=false];\n"),
-		     loop(Free,PrintInternals);
+		     		     {{N,E,S,_},G,Trace} = State,
+		     StringSyncEdge = 
+		     	integer_to_list(NodeA)++" -> "++integer_to_list(NodeB)
+		            ++"[style=dotted, color=red, arrowhead=none,constraint=false];\n",
+		     NG = 
+			     case LiveSaving of 
+			     	true ->
+			     		add_to_file(StringSyncEdge,false),
+			     		G;
+				    false ->
+				    	G ++ StringSyncEdge
+				 end,
+		     loop(Free,PrintInternals,LiveSaving,{{N,E,S + 1,now()},NG,Trace});
 		{create_graph,Process,Parent,Pid} ->
-			{Graph,NFree,NParent} = create_graph_string(Process,Free,Parent),
-			case Graph of
-			     "" -> 
-			     	Pid ! {created,Parent};
-			     _ ->
-			     	Pid ! {created,NParent},
-				add_to_file(Graph)
-			end,
-			loop(NFree,PrintInternals);
+			{Graph,NFree,NParent,TotalCreated} = create_graph_string(Process,Free,Parent),
+			{{N,E,S,_},G,Trace} = State,
+			NG = 
+				case Graph of
+				     "" -> 
+				     	Pid ! {created,Parent},
+				     	G;
+				     _ ->
+				     	Pid ! {created,NParent},
+				     	case LiveSaving of 
+					     	true ->
+					     		add_to_file(Graph,false),
+					     		G;
+						    false ->
+						    	G ++ Graph
+						 end
+				end,
+			{NN,NE} = 
+				case TotalCreated of 
+					0 -> {N,E};
+					1 -> {N + 1,E};
+					2 -> {N + 1,E + 1};
+					3 -> {N + 2,E + 1}
+				end,
+			loop(NFree,PrintInternals,LiveSaving,{{NN,NE,S,now()},NG,Trace});
 		{create_graph_no_ided,Process,Parent,Pid} ->
-		        %io:format("~p\n~p\n",[Process,Parent]),
+		    %io:format("~p\n~p\n",[Process,Parent]),
 			{Graph,IdAno} = create_graph_string_no_ided(Process,Parent),
 			%io:format("{Parent,Free,NFree}: ~p\n",[{Parent,Free,NFree}]),
-			add_to_file("//-> "++atom_to_list(IdAno)++"\n"
-			            ++Graph++
-			            "//<- "++atom_to_list(IdAno)++"\n"),
+			% add_to_file("//-> "++atom_to_list(IdAno)++"\n"
+			%             ++Graph++
+			%             "//<- "++atom_to_list(IdAno)++"\n"),
 			Pid ! {created_no_id,IdAno},
-			loop(Free,PrintInternals);
+			loop(Free,PrintInternals,LiveSaving,State);
 		{remove_graph_no_ided,IdAno,Pid} ->
-			remove_from_file("//-> "++atom_to_list(IdAno),
-			                 "//<- "++atom_to_list(IdAno)),
+			% remove_from_file("//-> "++atom_to_list(IdAno),
+			%                  "//<- "++atom_to_list(IdAno)),
 			Pid ! {removed,IdAno},
-			loop(Free,PrintInternals);
+			loop(Free,PrintInternals,LiveSaving,State);
 %		{print_graph_temporal,Graph,IdAno,Pid} ->
 %			add_to_file("//-> "++atom_to_list(IdAno)
 %			            ++Graph++
 %			            "//<- "++atom_to_list(IdAno)),
 %			Pid ! {printed_graph,Graph,IdAno},
 %			loop(Free,PrintInternals);
+		{info_graph,Pid} ->
+			% Because it is only called when finished
+			Pid!{info_graph, State},
+			finish_computation();
 		stop -> 
-			nonid!stop,
-			ok
+			finish_computation()
 	end.
 	
-	
+finish_computation() ->
+	nonid!stop,
+	ok.
+
 print_event(Event) ->
 	case csp_parsing:fake_process_name(atom_to_list(Event)) of
-	     true -> ok;
-	     false -> io:format("~s\n",[atom_to_list(Event)])
+	     true -> "";
+	     false -> io_lib:format("~s\n",[atom_to_list(Event)])
 	end.
 	
-add_to_file(String) ->
+add_to_file(String,NoOutput) ->
 	{ok, IODevice} = file:open("track.dot",[read]),
 	Read = read_file(IODevice),
 	file:close(IODevice),
 	file:write_file("track.dot", list_to_binary(Read ++String++"}")),
-	os:cmd("dot -Tpdf track.dot > track.pdf").
+	case NoOutput of 
+		false ->
+			os:cmd("dot -Tpdf track.dot > track.pdf");
+		true ->
+			ok
+	end.
+
 	
 remove_from_file(String1,String2) ->
 	{ok, IODevice} = file:open("track.dot",[read]),
@@ -125,14 +174,23 @@ read_file(IODevice,PrevData,Acc) ->
 	
 create_graph_string(Process,Free,Parent) ->
 	{SProcess,NFree,NParent} = create_graph(Process,Free),
-	SEdge = 
+	{SEdge,TotalNodesEdges} = 
 	  case {NParent =/= Parent, SProcess, Parent} of
-	       {_,_,-1} -> "";
-	       {_,"",_} -> "";
-	       {false,_,_} -> "";
-	       {true,_,_} -> string_edge(Parent,Free)
+	  	   {_,"",_} -> {"",0};
+	       {_,_,-1} -> {"",1};
+	       {false,_,_} -> {"",1};
+	       {true,_,_} -> {string_edge(Parent,Free),2}
 	  end,
-	{SEdge ++ SProcess,NFree,NParent}.
+	NTotalNodesEdges = 
+		case Process of 
+			{prefix,_,_,_,_,_} ->
+				TotalNodesEdges + 1;
+			{renamed_event,_,{prefix,_,_,_,_,_}} ->
+				TotalNodesEdges + 1;
+			_ ->
+				TotalNodesEdges
+		end,
+	{SEdge ++ SProcess,NFree,NParent,NTotalNodesEdges}.
 	
 create_graph_string_no_ided({prefix,SPANevent,Channels,Event,_,SPANarrow},Parent) ->
 	nonid!{get,self()},
@@ -163,6 +221,18 @@ create_graph({prefix,SPANevent,Channels,Event,_,SPANarrow},Free) ->
 	 string_vertex(Free+1,"->",SPANarrow)++
 	 string_edge(Free,Free+1),
 	 Free+2,Free+1};
+create_graph({renamed_event,Executed,{prefix,SPANevent,Channels,Event,_,SPANarrow}},Free) ->
+	RenamingInfo = 
+		case Executed of 
+			Event -> 
+				"";
+			_ ->
+				" [[" ++ atom_to_list(Event) ++ "<-" ++ atom_to_list(Executed) ++ "]]"
+		end,
+	{string_vertex(Free,atom_to_list(Executed)++string_channels(Channels)++RenamingInfo,SPANevent)++
+	 string_vertex(Free+1,"->",SPANarrow)++
+	 string_edge(Free,Free+1),
+	 Free+2,Free+1};
 create_graph({'|~|',_,_,SPAN},Free) ->
 	{string_vertex(Free,"|~|",SPAN),Free+1,Free};
 create_graph({'[]',_,_,SPAN},Free) ->
@@ -185,9 +255,23 @@ create_graph({skip,SPAN},Free) ->
 	{string_vertex(Free,"SKIP",SPAN),Free+1,Free};
 create_graph({stop,SPAN},Free) ->
 	{string_vertex(Free,"STOP",SPAN),Free+1,Free};
-create_graph({procRenaming,{rename,Original,Renamed},_,SPAN},Free) ->
-	StringRenaming = "[["++ atom_to_list(Original) ++ 
-	                 " <- " ++ atom_to_list(Renamed) ++ "]]",
+create_graph({procRenaming,Renamings,_,SPAN},Free) ->
+	% StringRenaming = 
+	% 	case is_atom(Renamed) of 
+	% 		true ->
+	% 			"[[" ++ atom_to_list(Original) ++ 
+	%                  " <- " ++ atom_to_list(Renamed) ++ "]]";
+	%  		false ->
+	%  			"[[" ++ [atom_to_list(ItemRenamed) ++ "," | ItemRenamed <- Renamed]
+	%  	end,
+	% {rename,Original,Renamed}
+	StringRenamingList0 =
+		lists:flatten(
+			[atom_to_list(Original) ++ " <- " ++ atom_to_list(Renamed) ++ "," 
+			 || {rename,Original,Renamed} <- Renamings]),
+	StringRenamingList = 
+		lists:reverse(tl(lists:reverse(StringRenamingList0))),
+	StringRenaming = "[[" ++ StringRenamingList ++ "]]",
 	{string_vertex(Free,StringRenaming,SPAN),Free+1,Free};
 create_graph({'\\',_,{closure,Events},SPAN},Free) ->
 	{string_vertex(Free,"\\\\ {|"++string_list(Events)++"|}",SPAN),
@@ -256,6 +340,8 @@ extractFromTo({src_position,FL,FC,_,_},Op) ->
 	
 string_channels([{in,Event}|Tail]) when is_atom(Event) ->
 	"?"++atom_to_list(Event)++string_channels(Tail);
+string_channels([{in,Event}|Tail]) when is_list(Event) ->
+	"?"++Event++string_channels(Tail);
 string_channels([{'inGuard',Event,_}|Tail]) when is_atom(Event) ->
 	"?"++atom_to_list(Event)++string_channels(Tail);
 string_channels([{out,Event}|Tail]) when is_atom(Event) ->
@@ -268,6 +354,8 @@ string_channels([{out,Event}|Tail]) when is_integer(Event) ->
 	"!"++integer_to_list(Event)++string_channels(Tail);
 string_channels([{'inGuard',_,List}|Tail]) ->
 	"?VAR:{"++string_arguments_aux(List)++"}"++string_channels(Tail);
+string_channels([Other|Tail]) ->
+	io_lib:format("~p", [Other]) ++string_channels(Tail);
 string_channels([]) -> "".
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -284,3 +372,6 @@ nonid_loop(Fresh) ->
 		stop ->
 			ok
 	end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

@@ -1,0 +1,35 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- ProdCons.csp
+--
+-- AUTHORS: 	Dusko S. Jovanovic
+-- DATE:        2006           
+-- PUBLISHED:   Designing dependable process-oriented software: a CSP-based approach.
+--              Centre for Telematics and Information Technology (CTIT).
+--				University of Twente, Netherlands. 
+--              CTIT Ph.D.-thesis series No. 06-82, pp. 55-56, 2006.
+-- DESCRIPTION
+-- This example describes a producer-consumer system. 
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------
+-- SOURCE CODE (adapted version)
+-----------------------------------------------------------------------------------------
+datatype theType = some_val | another_val
+channel ch1 : theType
+channel ch2 : theType
+
+Producer12 = ch1!some_val -> ch2!another_val -> Producer12
+
+Consumer12 = ch1?aVar -> ch2?bVar -> Consumer12
+
+Consumer21 = ch2?bVar -> ch1?aVar -> Consumer21
+
+-- In SystemDC a deadlock condition occurs
+SystemDC = Producer12 [|{|ch1, ch2|}|] Consumer21
+
+-- SystemDF is deadlock free
+SystemDF = Producer12 [|{|ch1, ch2|}|] Consumer12
+
+MAIN = SystemDC ||| SystemDF

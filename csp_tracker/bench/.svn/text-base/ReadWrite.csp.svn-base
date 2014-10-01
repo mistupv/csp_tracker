@@ -1,0 +1,32 @@
+channel startwrite, stopwrite, startread, stopread, error
+
+Writer 	= startwrite -> stopwrite -> Writer
+
+Writers(0) = Writer
+Writers(1) = Writer
+Writers(2) = Writer
+
+Reader 	= startread -> stopread -> Reader
+
+Readers(0) = Reader
+Readers(1) = Reader
+Readers(2) = Reader
+
+Reading(0) = Controller
+Reading(1) = startread -> Reading(2) [] stopread -> Reading(0)
+Reading(2) 	= stopread -> Reading(1) 
+
+Controller 	= startread -> Reading(1)
+	 	 	 	 [] stopread -> error -> Controller
+	 	 	 	 [] startwrite -> (stopwrite -> Controller [] stopread -> error -> Controller)
+
+ReadersWriters = 
+	Controller 
+	[|{|startwrite, stopwrite, startread, stopread|}|] 
+		((Readers(0) ||| Writers(0)) 
+		||| 
+		(Readers(1) ||| Writers(1)) 
+		||| 
+		(Readers(2) ||| Writers(2)))
+
+MAIN = ReadersWriters

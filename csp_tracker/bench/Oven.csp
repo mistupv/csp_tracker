@@ -1,0 +1,83 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Oven.csp
+--
+-- AUTHORS:     Kirsten Winter
+-- DATE:        2004
+-- PUBLISHED:   Formalising Behaviour Trees with CSP. 
+--			    IFM 2004, LNCS 2999, pp. 148-167, Springer, 2004
+-- DESCRIPTION
+-- This example describes a microwave oven with the following requirements:
+-- R1.  There is a single control button available for the user of the oven. If the oven 
+--      is idle with the door closed and you push the button, the oven will start cooking 
+--      (that is, energise the power-tube for one minute).
+-- R2.  If the button is pushed while the oven is cooking it will cause the oven to cook 
+--      for an extra minute.
+-- R3.  Pushing the button when the door is open has no effect (because it is disabled).
+-- R4.  Whenever the oven is cooking or the door is open the light in the oven will be on.
+-- R5.  Opening the door stops the cooking.
+-- R6.  Closing the door turns off the light. This is the normal idle state prior to  
+--      cooking when the user has placed food in the oven.
+-- R7.  If the oven times-out, the light and the power-tube are turned off and then a  
+--      beeper emits a sound to indicate that the cooking is finished.
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------
+-- SOURCE CODE (adapted version)
+-----------------------------------------------------------------------------------------
+channel userDoorClosed, userPushButton1, userPushButton2, userDoorOpen1, userDoorOpen2
+channel ovenTimeOut
+channel e3, e4, e7, e8, e11, e12, e15, e16, e19, e20, e21, e24, e25, e26 
+
+MAIN =  Oven [|{|e4, e8, e12, e15, e20, e25, userDoorClosed, userDoorOpen1, userDoorOpen2, userPushButton1, userPushButton2, ovenTimeOut|}|]
+         (Door [|{|e3, e11, e19, userDoorClosed, userDoorOpen1, userDoorOpen2|}|]
+         (Light [|{|e3, e4, e7, e8, e11, e12, e24, userDoorClosed, userDoorOpen1, userPushButton1, ovenTimeOut|}|]
+          (Button 
+          [|{|e19, e20, userDoorOpen2, userPushButton1|}|]
+          (Powertube [|{|e24, ovenTimeOut|}|] Beeper))))
+
+Oven = OvenOpen
+Door = DoorInit
+Light = LightInit
+Button = ButtonInit
+Powertube = PowertubeInit
+Beeper = BeeperInit
+
+-- Oven component
+OvenOpen = userDoorClosed -> e4 -> OvenIdle
+OvenIdle = userPushButton1 -> e8 -> OvenCooking [] userDoorOpen1 -> e12 -> OvenOpen
+OvenCooking = userPushButton2 -> e15 -> OvenExtraMin [] 
+              userDoorOpen2 -> e20 -> OvenCookStop [] 
+        ovenTimeOut -> e25 -> OvenCookFinish
+OvenExtraMin = e16 -> OvenCooking
+OvenCookStop = e21 -> OvenOpen
+OvenCookFinish = e26 -> OvenIdle
+
+-- Door and Light components
+DoorInit = userDoorClosed -> DoorClosed
+DoorClosed = e3 -> (userDoorOpen1 -> DoorOpen [] userDoorOpen2 -> DoorOpen)
+DoorOpen = e19 -> userDoorClosed -> DoorClosed [] e11 -> userDoorClosed -> DoorClosed
+
+LightInit = userDoorClosed -> e3 -> LightOff
+LightOff = e4 -> (userPushButton1 -> e7 -> LightOn [] userDoorOpen1 -> e11 -> LightOn) [] 
+           e24 -> (userPushButton1 -> e7 -> LightOn [] userDoorOpen1 -> e11 -> LightOn)
+LightOn = e8 -> (ovenTimeOut -> LightOff [] LightInit) [] 
+          e12 -> userDoorClosed -> e3 -> LightOff
+      
+-- Button component
+ButtonInit = userDoorClosed -> e3 -> ButtonEnabled
+ButtonEnabled = e4 -> (userDoorOpen1 -> e11 -> ButtonDisabled [] userPushButton1 -> ButtonPushed)
+ButtonDisabled = e12 -> ButtonInit [] e20 -> ButtonInit
+ButtonPushed = e7 -> ((userPushButton2 -> ButtonPushed [] userDoorOpen2 -> e19 -> ButtonDisabled)
+           [] (userDoorOpen1 -> e11 -> ButtonDisabled [] userPushButton1 -> ButtonPushed))
+         [] e15 -> ((userPushButton2 -> ButtonPushed [] userDoorOpen2 -> e19 -> ButtonDisabled)
+         [] (userDoorOpen1 -> e11 -> ButtonDisabled [] userPushButton1 -> ButtonPushed))      
+
+-- Powertube and Beeper components  
+PowertubeInit = userPushButton1 -> e7 -> PowertubeEnergised
+PowertubeEnergised = e8 -> (userDoorOpen2 -> e19 -> PowertubeOff [] ovenTimeOut -> PowertubeOff)
+PowertubeOff = e20 -> PowertubeInit [] e24 -> PowertubeInit
+
+BeeperInit = ovenTimeOut -> e24 -> BeeperSounded
+BeeperSounded = e25 -> BeeperInit

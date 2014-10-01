@@ -4,12 +4,20 @@
 
 
 loop(Processes) ->
+	random:seed(now()),
 	receive
 		{ask_code,Process,Arguments,Pid} -> 
 			AllProcesses =  ets:lookup(Processes, Process),
 			%io:format("~p\n",[AllProcesses]),
 			PBody = get_body(Process,Arguments,AllProcesses),
 			Pid!{code_reply,PBody},
+			loop(Processes);
+		{ask_channel,Channel,Pid} -> 
+			{Channel,Types} =  hd(ets:lookup(Processes, Channel)),
+			SelectedChannels = 
+				[begin lists:nth(random:uniform(length(T)),T) end|| T <- Types],
+			% io:format("Channel: ~p\nTypes: ~p\nSelectedChannels: ~p\n",[Channel,Types, SelectedChannels]),
+			Pid!{channel_reply,SelectedChannels},
 			loop(Processes);
 		stop -> 
 			ok
@@ -19,6 +27,10 @@ get_body(Process,Arguments,[{Process,{Parameters,PBody}}|Tail]) ->
 	case csp_parsing:matching(Parameters,Arguments) of
 	     true ->
 	     	csp_parsing:replace_parameters(PBody,lists:zip(Parameters,Arguments));
+	     	% Result = csp_parsing:replace_parameters(PBody,lists:zip(Parameters,Arguments)),
+	     	% io:format("Body: ~p\n",[Result]),
+	     	% io:format("ParArgs: ~p\n",[lists:zip(Parameters,Arguments)]),
+	     	% Result;
 	     false ->
 	     	get_body(Process,Arguments,Tail)
 	end;

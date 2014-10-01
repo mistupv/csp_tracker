@@ -3,7 +3,8 @@
 %repasar que no quede ninguna sense utilitzar
 -export([search_parameters/2,rewrite_vars/1,
          matching/2,replace_parameters/2,
-         fake_process_name/1]).
+         fake_process_name/1,
+         extract_type/1]).
 
 
 search_parameters([$(|Tail],Acc) ->
@@ -36,15 +37,117 @@ extract_expressions([$v,$a,$r,$_|NTail]) ->
 	end;
 extract_expressions([]) -> [].
 
+extract_type("'dotUnitType'") ->
+	[];
+extract_type([$',$d,$o,$t,$T,$u,$p,$l,$e,$T,$y,$p,$e,$',$(,$[|Tail]) ->
+	get_type_tokens(Tail);
+extract_type(_) ->
+	[].
 
+get_type_tokens([$',$s,$e,$t,$F,$r,$o,$m,$T,$o,$',$(|Tail]) ->
+	{Ini,Fin,NTail} = get_ini_fin(Tail,1,-1),
+	Type = 
+		try 
+			lists:seq(Ini,Fin)
+		catch 
+			_:_ -> []
+		end,
+	[Type|get_type_tokens(NTail)];
+get_type_tokens([$,,$',$s,$e,$t,$F,$r,$o,$m,$T,$o,$',$(|Tail]) ->
+	{Ini,Fin,NTail} = get_ini_fin(Tail,1,-1),
+	Type = 
+		try 
+			lists:seq(Ini,Fin)
+		catch 
+			_:_ -> []
+		end,
+	[Type|get_type_tokens(NTail)];
+get_type_tokens([$',$s,$e,$t,$E,$n,$u,$m,$',$(,$[|Tail]) ->
+	{Type,NTail} = get_enum(Tail,[]),
+	% io:format("Type: ~p\n",[Type]),
+	[Type|get_type_tokens(NTail)];
+get_type_tokens([$,,$',$s,$e,$t,$E,$n,$u,$m,$',$(,$[|Tail]) ->
+	{Type,NTail} = get_enum(Tail,[]),
+	[Type|get_type_tokens(NTail)];
+get_type_tokens([_|_]) -> 
+	[];
+get_type_tokens([]) ->
+	[].
+
+% ['setFromTo'('int'(0),'int'(2)),'setFromTo'('int'(0),'int'(2)),'setFromTo'('int'(0),'int'(2)),'setFromTo'('int'(0),'int'(2))])
+
+get_ini_fin([$',$i,$n,$t,$',$(|Tail],_,Fin) ->
+	{InitialNumberStr,NTail} = untill_bracket(Tail),
+	InitialNumber = list_to_integer(InitialNumberStr),
+	get_ini_fin(NTail,InitialNumber,Fin);
+get_ini_fin([$,,$',$i,$n,$t,$',$(|Tail],Ini,_) ->
+	{FinalNumberStr,NTail} = untill_bracket(Tail),
+	FinalNumber = list_to_integer(FinalNumberStr),
+	get_ini_fin(NTail,Ini,FinalNumber);
+get_ini_fin([_|Tail],Ini,Fin) ->
+	{Ini,Fin,Tail};
+get_ini_fin([],Ini,Fin) ->
+	{Ini,Fin,[]}.
+
+get_enum([$',$i,$n,$t,$',$(|Tail],Acc) ->
+	{NumberStr,NTail} = untill_bracket(Tail),
+	Number = list_to_integer(NumberStr),
+	get_enum(NTail,[Number|Acc]);
+get_enum([$,,$',$i,$n,$t,$',$(|Tail],Acc) ->
+	{NumberStr,NTail} = untill_bracket(Tail),
+	Number = list_to_integer(NumberStr),
+	get_enum(NTail,[Number|Acc]);
+get_enum([$'|Tail],Acc) ->
+	{AtomStr,NTail} = untill_colon(Tail),
+	Atom = list_to_atom(AtomStr),
+	get_enum(NTail,[Atom|Acc]);
+get_enum([Other|Tail],Acc) ->
+	% io:format("Other: ~p\n",[Other]),
+	{Acc,Tail};
+get_enum([],Acc) ->
+	{Acc,[]}.
+
+untill_bracket(String) ->
+	untill_char($),String,[]).
+
+untill_colon(String) ->
+	untill_char($,,String,[]).
+
+untill_char(Char,[Char|Tail],Acc) ->
+	{Acc,Tail};
+untill_char(Char,[OtherChar|Tail],Acc) ->
+	untill_char(Char,Tail,[OtherChar|Acc]);
+untill_char(_,[],Acc) ->
+	{Acc,[]}.
+
+
+% rewrite_vars([$",$_|Tail]) ->
+% 	{Var, [FollChar|Ntail]} = read_whole_var(Tail),
+% 	case Var of
+% 	     [] ->
+% 	     	[$",$_|rewrite_vars(Tail)];
+% 	     _ -> 
+% 	     	case FollChar of 
+% 	     		$" -> [];
+% 	     		_ -> [$"]
+% 	     	end
+% 	       	++ [$v,$a,$r,$_|Var] ++ rewrite_vars(Ntail)
+% 	 end;
 rewrite_vars([$_|Tail]) ->
 	{Var, Ntail} = read_whole_var(Tail),
 	case Var of
 	     [] ->
 	     	[$_|rewrite_vars(Tail)];
 	     _ -> 
-	       	[$v,$a,$r,$_|Var]++ rewrite_vars(Ntail)
+	       	[$v,$a,$r,$_|Var] ++ rewrite_vars(Ntail)
 	 end;
+rewrite_vars([$!,$=,$(|Tail]) ->
+	First = string:str(Tail,"\""),
+	NTail = string:sub_string(Tail, First), 
+	Args = string:sub_string(Tail,1,First - 2),
+	[Arg1 , Arg2] = string:tokens(Args, ","), 
+	rewrite_vars(Arg1) ++ "/=" ++ rewrite_vars(Arg2) 
+	++ rewrite_vars(NTail);
 rewrite_vars([Char|Tail]) ->
 	[Char|rewrite_vars(Tail)];
 rewrite_vars([]) ->
@@ -64,18 +167,33 @@ read_whole_var([]) -> {[],[]}.
 get_value(Str,Dict) ->
 	Expr = read_expression(Str),
 	NExpr = replace_vars(Expr,Dict),
-	%io:format("NExpr: ~p\nDict: ~p\n",[NExpr,Dict]),
+	% io:format("Expr: ~p\nNExpr: ~p\nDict: ~p\n",[Expr,NExpr,Dict]),
+	% io:format("Expr: ~p\n",[Expr]),
+	% io:format("Self: ~p\n",[self()]),
 	case is_list(NExpr) orelse contains_vars(NExpr) of
 	     true ->
 	        case NExpr of
-	             {op,_,Op,E1,E2} ->
+	             {op,_,_Op,_E1,_E2} ->
 	             	reconvert_to_string(NExpr);
 	             _ -> Str 
 	     	end;
 	     false ->
-		{value,Value,_} = erl_eval:expr(NExpr,[]),
-		%io:format("Value: ~p\n",[Value]),
-		Value
+	     	NNExpr = 
+	     		case NExpr of 
+	     			{op,Op,LINE,E1,E2} ->
+	     				{op,Op,LINE,convert_erlang(E1),convert_erlang(E2)};
+	     			_ ->
+	     				NExpr
+	     		end,
+	     	% io:format("Expr: ~p\nNExpr: ~p\nDict: ~p\n",[Expr,NExpr,Dict]),
+	     	% io:format("NNExpr: ~p\n",[NNExpr]),
+	     	try 
+				{value,Value,_} = erl_eval:expr(NNExpr,[]),
+				% io:format("Value: ~p\n",[Value]),
+				Value
+			catch
+				_:_ -> NNExpr
+			end
 	end.
 
 
@@ -109,6 +227,8 @@ read_expression(ExprStr) when is_list(ExprStr) ->
 	_Err ->
 	    ExprStr%{error, parse_error}
     end;
+read_expression(ExprAt) when is_atom(ExprAt) ->
+	read_expression(atom_to_list(ExprAt));
 read_expression(ExprStr) -> ExprStr.
     
     
@@ -131,10 +251,26 @@ replace_parameters({sharing,{closure,Events},P1,P2,SPAN},Dict) ->
 	 replace_parameters(P1,Dict),replace_parameters(P2,Dict),SPAN};
 replace_parameters({'|||',P1,P2,SPAN},Dict) ->
 	{'|||',replace_parameters(P1,Dict),replace_parameters(P2,Dict),SPAN};
-replace_parameters({procRenaming,{rename,Original,Renamed},P,SPAN},Dict) ->
-	{procRenaming,{rename,hd(replace_parameters_list([Original],Dict)),
-		              hd(replace_parameters_list([Renamed],Dict))},
-	 replace_parameters(P,Dict),SPAN};
+replace_parameters({procRenaming,Renamings,P,SPAN},Dict) ->
+	NRenamings0 = 
+		case Renamings of 
+			{rename,Original,Renamed} -> 
+				[{rename,hd(replace_parameters_list([Original],Dict)),
+		              hd(replace_parameters_list([Renamed],Dict))}];
+		    _ ->
+		    	[{rename,hd(replace_parameters_list([Original],Dict)),
+		              hd(replace_parameters_list([Renamed],Dict))} 
+		         || {rename,Original,Renamed} <- Renamings]
+		end,
+	NP0 = replace_parameters(P,Dict),
+	{NRenamings, NP} = 
+		case NP0 of 
+			{procRenaming,Renamings_NP0,P_NP0,_} ->
+				{NRenamings0 ++ Renamings_NP0,P_NP0};
+			_ ->
+				{NRenamings0,NP0}
+		end,
+	{procRenaming,NRenamings,NP,SPAN};
 replace_parameters({'\\',P,{closure,Events},SPAN},Dict) ->
 	{'\\',replace_parameters(P,Dict),{closure,replace_parameters_list(Events,Dict)},SPAN};
 replace_parameters({';',PA,PB,SPAN},Dict) ->
@@ -163,19 +299,39 @@ replace_vars({atom,LINE,Atom},Dict) ->
 replace_vars(Other,Dict) -> replace_event(Other,Dict).
 	
 replace_event(Event,Dict)  ->
+	% io:format("Replace event ~p\n",[Event]),
 	FEvent = 
 	  case is_list(Event) of
 	       true -> list_to_atom(Event);
-	       false -> Event
+	       false -> 
+	       		case Event of 
+	       			{Op,{E1,E2}} ->
+	       				Replaced = get_value({op,1,Op,E1,E2},Dict),
+	       				% io:format("Replaced: ~p\n",[Replaced]),
+	       				Replaced;
+	       			_ -> 
+	       				Event
+	       		end
 	   end,	
-	case [Arg_||{Par,Arg_} <- Dict,Par=:=FEvent] of
-	     [Arg|_] ->
-	     	Arg;
-	     _ ->
-	     	Event
-	end.
+	Res =
+		case [Arg_||{Par,Arg_} <- Dict,Par=:=FEvent] of
+		     [Arg|_] ->
+		     	Arg;
+		     _ ->
+		     	FEvent
+		end,
+	%io:format("Result: ~p\n",[Res]),
+	Res.
 	
+convert_erlang(X) when is_integer(X) ->
+	{integer,1,X};
+convert_erlang(X) when is_atom(X) ->
+	{atom,1,X};
+convert_erlang(X) ->
+	X.
+
 replace_channels([{in,Event}|Tail],Dict) ->
+	%io:format("Event ~p\nDict ~p\nReplacement ~p\n",[Event,Dict,replace_event(Event,Dict)]),
 	[{in,replace_event(Event,Dict)}|replace_channels(Tail,Dict)];
 replace_channels([{'inGuard',Var,List}|Tail],Dict) ->
 	[{'inGuard',replace_event(Var,Dict),List}|replace_channels(Tail,Dict)];
@@ -211,6 +367,8 @@ fake_process_name([$-|Tail]) ->
 	end;
 fake_process_name([_|Tail]) -> 
 	fake_process_name(Tail).
+
+
 
 %replace_fake_processes({prefix,SPANevent,Channels,Event,P,SPANarrow},Dict) ->
 %	{prefix,SPANevent,Channels,

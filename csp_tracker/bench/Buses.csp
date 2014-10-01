@@ -1,0 +1,32 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Buses.csp
+--
+-- AUTHORS: 	Simon Gay
+-- DATE:        January 1999        
+-- PUBLISHED:   Royal Holloway, University of London             
+-- DESCRIPTION
+-- This example describes a bus service with two buses running in parallel.
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------
+-- SOURCE CODE (adapted version)
+-----------------------------------------------------------------------------------------
+channel board37A, alight37A, alight37B, 
+        board111A, alight111A, alight111B, 
+        pay70, pay90
+
+BUS37 = board37A -> (pay90 -> alight37B -> STOP [] alight37A -> STOP)
+
+BUS111 = board111A -> (pay70 -> alight111B -> STOP [] alight111A -> STOP)
+
+SERVICE = BUS37 |~| BUS111
+
+PASS = board37A -> pay90 -> alight37B -> STOP
+
+SYSTEM = SERVICE
+         [|{|board37A,alight37A,alight37B,board111A,alight111A,alight111B,pay70,pay90|}|] 
+		 PASS
+
+MAIN = SYSTEM

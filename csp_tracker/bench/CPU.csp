@@ -1,0 +1,103 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- CPU.csp
+--
+-- AUTHORS:              Josep Silva
+-- DATE:                 September 2014
+-- PUBLISHED:     
+-- DESCRIPTION
+-- This example describes a queue of processes trying to access the CPU. 
+-- It is a variant of example diskserver.csp by W.B. Gardner.
+-- Here, access to the CPU is granted by an independent process  
+-- that uses a round robin strategy. Only one process can access the ALU
+-- while the other processes wait in a queue. 
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------
+-- SOURCE CODE 
+-----------------------------------------------------------------------------------------
+channel operation, answer, cuo, cui, alu, working, result: {0..3}
+channel shift, deq, empty
+channel enq, next, left, right, comm: {0..3}
+
+--============================
+-- Queue:  Processes queue
+--
+-- Interface:
+--	enq!<item>	enqueue item
+--	deq		    dequeue item, followed by:
+--	  next?x	  next item returned, or
+--	  empty		  empty queue indication
+--============================
+CELL = left?x -> shift -> right!x -> CELL
+
+BUFF = ((CELL[[right<-comm]]) [|{|comm|}|] (CELL[[left<-comm]]))\{|comm|}
+
+Queue = (DQ(0) [|{|left, right, shift|}|] BUFF)\{|left, right, shift|}
+
+DQ(2) = deq -> shift -> X(2)
+
+DQ(i) = enq?x -> (left!x -> shift-> DQ(i+1))
+	   [] deq -> (if (i==0) then empty -> DQ(0) 
+			      else X(i))
+
+X(i) = right?y -> (next!y -> DQ(i-1))
+     [] shift -> X(i)
+
+--============================
+-- CU:  Control Unit
+--
+-- Interface:
+--  cui!proc	process <proc> gets access to control unit
+--	cuo?proc	process <proc> leaves control unit
+--============================
+CU = cui?proc -> operation.proc -> answer.proc -> cuo!proc -> CU
+
+--============================
+-- ALU:  Arithmetic Logic Unit
+--
+-- Interface:
+--	operation?proc	process <proc> performs operation in ALU
+--	answer!proc		result produced by ALU for process <proc>
+--============================
+ALU = operation?proc -> answer!proc -> ALU
+
+--============================
+-- Sched:  scheduler
+--
+-- Interface:
+--	alu!proc	process <proc> requests access to ALU 
+--	result.proc	UAL produced a result to <proc>'s request
+--============================
+Sched = Sched_idle
+
+Sched_idle = alu?proc -> cui!proc -> Sched_busy
+
+Sched_busy = cuo?proc -> (result.proc -> Sched_check)
+	      [] alu?proc -> enq!proc -> Sched_busy
+
+Sched_check = deq -> (empty -> Sched_idle
+                     [] next?proc -> cui!proc -> Sched_busy)
+
+--============================
+-- CPU:  Central Processing Unit
+--
+-- Interface: (see Sched)
+--============================
+CPU = (Sched [|{|enq,deq,next,empty|}|] Queue)
+	  [|{|cui,cuo|}|]
+      (CU [|{|operation,answer|}|] ALU)
+
+-- Buggy!!!!!!
+SYSTEM = CPU [|{|alu,answer|}|] (Process(1)|||Process(2)|||Process(3)) 
+-- Correct!!!!!!
+--SYSTEM = CPU [|{|alu,result|}|] (Process(1)|||Process(2)|||Process(3)) 
+
+MAIN = SYSTEM
+
+--============================
+-- Process: A process asks an operation to the cpu, 
+-- and it continues working until the result is provided
+--============================
+Process(X) = alu!X -> working.X -> result.X -> SKIP

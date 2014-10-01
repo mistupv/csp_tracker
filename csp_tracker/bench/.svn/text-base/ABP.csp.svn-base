@@ -1,0 +1,116 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- ABP.csp
+--
+-- AUTHORS:       Bill Roscoe, 
+-- DATE:          FDR2 version, June 1996
+-- PUBLISHED:     Version for chapter 4 of "Understanding Concurrent Systems", 2010
+-- DESCRIPTION
+-- The alternating bit protocol provides the most standard of all protocol
+-- examples, and is while it is too simple for practical purposes, its
+-- analysis contains much that remains relevant in realistic examples.
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------
+-- SOURCE CODE
+-----------------------------------------------------------------------------------------
+-- CHANNELS and DATA TYPES
+-- left and right are the external input and output, which we set to
+-- one-bit.  a and b carry a tag and a data value.
+-- c and d carry an acknowledgement tag.  In this protocol tags are bits.
+
+--DATA = {0,1}  -- in a data-independent program, where nothing is done to
+              -- or conditional on data, this is sufficient to establish
+              -- correctness
+--TAG = {0,1}   -- the alternating bits.
+
+channel left,right:{0,1} --DATA
+channel a,b:{0,1}.{0,1}  --TAG.DATA
+channel c,d:{0,1}		 --TAG
+
+-- The protocol is designed to work in the presence of lossy and duplicating
+-- channels.
+-- Here are channels that can do this arbitrarily
+
+C(ic,oc) = ic?x -> (C(ic,oc) |~| C1(ic,oc,x))
+
+C1(ic,oc,x) = oc!x -> (C(ic,oc) |~| C1(ic,oc,x))
+
+-- We specify here channels which must transmit one out of any L=3 values, but 
+-- any definition would work provided it maintains order and does not lose
+-- an infinite sequence of values.  The only difference would evidence itself
+-- in the size of the state-space!
+
+BE(ic,oc,n) = ic?tag?data -> (if (n==0) then (oc!tag!data -> BE(ic,oc,3-1))
+                       else ((oc!tag!data -> BE(ic,oc,3-1)) |~|  BE(ic,oc,n-1)))
+
+BE1(ic,oc,n) = ic?tag -> (if (n==0) then (oc!tag -> BE1(ic,oc,3-1))
+                       else ((oc!tag -> BE1(ic,oc,3-1)) |~|  BE1(ic,oc,n-1)))
+
+
+-- Increasing L makes this definition less deterministic.  
+
+-- Here are versions with events to control when errors occur:
+
+channel loss, dup: {a,b,c}
+
+CE(ic,oc) = ic?x -> (loss -> CE(ic,oc) [] CE1(ic,oc,x))
+
+CE1(ic,oc,x) = oc!x -> (CE(ic,oc) [] dup -> CE1(ic,oc,x))
+
+--&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+-- The implementation of the protocol consists of a sender process and
+-- receiver process, linked by channels such as those above.
+-- The sender process is parameterised by the current value it tries to send
+-- out, which may be null in which case it does not try to send it,  but
+-- instead accepts a new one from channel left.
+
+--Null=99  -- any value not in DATA
+
+SEND(v,bit) = (if (v == 99) then 
+                (left?x -> SEND(x,(1-bit))) else 
+                (a!bit!v -> SEND(v,bit)))
+              [](d?ack ->(if (ack==bit) then SEND(99,bit) 
+                        else SEND(v,bit)))
+
+-- Initially the data value is Null & bit=1 so the first value input gets bit=0.
+
+SND = SEND(99,1)
+
+-- The basic part of the receiver takes in messages, sends acknowledgements,
+-- and transmits messages to the environment.  REC(b) is a process that
+-- will always accept a message or send an acknowledgement, save that it
+-- will not do so when it has a pending message to transmit to
+-- the environment.  
+
+REC(bit) = b?tag?data -> (if (tag==bit) then right!data -> REC(1-bit)
+                                      else REC(bit))
+           [] (c!(1-bit) -> REC(bit))
+               
+-- The first message to be output has tag 0, and there is no pending
+-- message.
+
+RCV = REC(0)
+
+-- The following version avoids infinite traces without externally visible
+-- progress
+
+REC2(bit) = b?tag?data -> 
+            (if (tag==bit) then right!data ->  c!(1-bit) -> REC2(1-bit)
+                           else  c!(1-bit) -> REC2(bit))
+               
+RCV2 = REC2(0)
+
+--%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-- Putting it together
+
+--SystemC =  SND [|{|a,d|}|]((C(a,b)|||C(c,d))[|{|b,c|}|] RCV)
+--SystemBE =  SND [|{|a,d|}|]((BE(a,b,3-1)|||BE1(c,d,3-1))[|{|b,c|}|] RCV)
+--SystemCE =  SND [|{|a,d|}|]((CE(a,b)|||CE(c,d))[|{|b,c|}|] RCV)
+--SystemC2 =  SND [|{|a,d|}|]((C(a,b)|||C(c,d))[|{|b,c|}|] RCV2)
+SystemBE2 =  SND [|{|a,d|}|]((BE(a,b,3-1)|||BE1(c,d,3-1))[|{|b,c|}|] RCV2)
+--SystemCE2 =  SND [|{|a,d|}|]((CE(a,b)|||CE(c,d))[|{|b,c|}|] RCV2)
+
+

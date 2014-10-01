@@ -2,23 +2,40 @@
 %IDEA 2: Enrecordarme de no dibuixar el external choice o el parallelisme fins que el fills no executen algo. Aço es pot fer dins del paralleislme mateixa, la primera volta que es reba algo
 -module(csp_process).
 
--export([first/1,loop/5,loop_root/1]).
+-export([first/3,loop/5,loop_root/1]).
 
-first(Timeout) -> 
-	io:format("\n-> START_TRACE\n\n"),
-	Root = spawn(csp_process,loop_root,[self()]),
-	spawn(csp_process,loop,[{agent_call,{src_span,0,0,0,0,0,0},'MAIN',[]},Root,-1,[],[]]),
+first(FirstProcess,Timeout,NoOutput) -> 
+	print_message("\n-> START_TRACE\n\n",NoOutput),
+	Root = spawn(csp_process,loop_root,[get_self()]),
+	spawn(csp_process,loop,[{agent_call,{src_span,0,0,0,0,0,0},FirstProcess,[]},Root,-1,[],[]]),
 	receive
-		ok -> 	io:format("\n<- FINISH_TRACE\n");
-		stopped -> 	io:format("\n<- STOPPED_TRACE (deadlock)\n")
+		ok -> 	print_message("\n<- FINISH_TRACE\n",NoOutput);
+		stopped -> 	print_message("\n<- STOPPED_TRACE (deadlock)\n",NoOutput) 
 	after
-		Timeout -> io:format("\nTimeout.\n")
+		Timeout -> print_message("\n<- STOPPED_TRACE (timeout)\n",NoOutput)
 	end,
 	exit(Root, kill),
-	%loop_root(self()),
-	printer!stop,
-	codeserver!stop,
-	ok.
+	%loop_root(get_self()),
+	send_message2regprocess(printer,{info_graph,get_self()}),
+	InfoGraph = 
+		receive 
+			{info_graph, InfoGraph_} ->
+				InfoGraph_
+		after 
+			1000 -> 
+				{{0,0,0,now()},"",""}
+		end,
+	send_message2regprocess(printer,stop),
+	send_message2regprocess(codeserver,stop),
+	InfoGraph.
+
+print_message(Msg,NoOutput) ->
+	case NoOutput of 
+		false ->
+			io:format(Msg);
+		true ->
+			ok
+	end.
 	
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -27,7 +44,7 @@ first(Timeout) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
 loop_root(First) ->
-        %io:format("a la espera root ~p\n",[self()]),
+        %io:format("a la espera root ~p\n",[get_self()]),
 	receive	
 		{finished,_,_} ->
 			First!ok;
@@ -37,27 +54,32 @@ loop_root(First) ->
 		{stopped,_} -> 
 			First!stopped;
 		{event,Event,Channels,Pid,PidPrefixing,_,_} ->
-		        %io:format("Arriba ~p amb canals ~p\n",[Event,Channels]),
-			SelectedChannels = select_channels(Channels),
+		    % Channels_ = lists:reverse(Channels),
+		    Channels_ = Channels,
+			SelectedChannels_ = select_channels(Channels_,Event),
+			% SelectedChannels = lists:reverse(SelectedChannels_),
+			SelectedChannels = SelectedChannels_,
+			% io:format("Arriba ~p amb canals ~p\n",[Event,Channels]),
+			% io:format("CHANNELS: ~p\n",[SelectedChannels]), 
 			ChannelsString = create_channels_string(SelectedChannels),
 			EventString = 
 			    case ChannelsString of
 			         "" -> 
-					atom_to_list(Event);
-				 _ -> 
-				 	case atom_to_list(Event) of
-				 	     [$ ,$ ,$ ,$t,$a,$u|_] ->
-				 	     	atom_to_list(Event);
-				 	     _ ->  
-				  		atom_to_list(Event) ++ "." ++ ChannelsString
-				  	end
+						atom_to_list(Event);
+					 _ -> 
+					 	case atom_to_list(Event) of
+					 	     [$ ,$ ,$ ,$t,$a,$u|_] ->
+					 	     	atom_to_list(Event);
+					 	     _ ->  
+					  		atom_to_list(Event) ++ "." ++ ChannelsString
+					  	end
 			    end,
 			ExecutedEvent = list_to_atom(EventString),
-		        printer!{print,ExecutedEvent,self()},
+		    send_message2regprocess(printer,{print,ExecutedEvent,get_self()}),
 			receive
 			   {printed,ExecutedEvent} -> ok
 			end,
-			Pid!{executed,PidPrefixing,self(),SelectedChannels},
+			Pid!{executed,PidPrefixing,get_self(),SelectedChannels},
 			receive
 			     _ ->  PidPrefixing!continue
 			end,
@@ -80,8 +102,8 @@ loop(Process,PidParent,GraphParent,PendingSC,Renaming) ->
 			             PidParent,GraphParent,Renaming),
 	  	        {NState_, PendingSC, NGraphParent_};
 		     _ ->
-		        %io:format("Create_graph de ~p (~p)\n",[Process,self()]),
-				printer!{create_graph,Process,GraphParent,self()},
+		        %io:format("Create_graph de ~p (~p)\n",[Process,get_self()]),
+				send_message2regprocess(printer,{create_graph,Process,GraphParent,get_self()}),
 				receive
 					{created,NGraphParent_} ->
 					   Res = process(Process,PidParent,NGraphParent_,Renaming),
@@ -92,23 +114,23 @@ loop(Process,PidParent,GraphParent,PendingSC,Renaming) ->
 		end,
         case NState of
              {finished_skip,SPANSKIP} ->
-             	%io:format("Envio: ~p\n",[{finished_skip,SPANSKIP,NGraphParent,self()}]),
+             	%io:format("Envio: ~p\n",[{finished_skip,SPANSKIP,NGraphParent,get_self()}]),
              	IsFinal =
              	  case NPendingSC of
              	       [] -> true;
              	       _ -> false
              	  end,
-             	PidParent!{finished_skip,SPANSKIP,NGraphParent,self(),self(),IsFinal},
+             	PidParent!{finished_skip,SPANSKIP,NGraphParent,get_self(),get_self(),IsFinal},
              	receive
              	   {continue_skip,NNGraphParent} ->
-             	      loop({finished,self(),[NNGraphParent]},
+             	      loop({finished,get_self(),[NNGraphParent]},
              	            PidParent,NNGraphParent,NPendingSC,Renaming)
              	end;
              {finished,Pid,FinishedNodes} -> 
                   case NPendingSC of
 	               [{Pending,RenamingOfPending,SPANSC}|TPendingSC] ->
-                           printer!{print,'   tau',self()},
-                           printer!{create_graph,{';',FinishedNodes,SPANSC},-1,self()},
+                           send_message2regprocess(printer,{print,'   tau',get_self()}),
+                           send_message2regprocess(printer,{create_graph,{';',FinishedNodes,SPANSC},-1,get_self()}),
                            receive
 			     {printed,'   tau'} -> 
 			   	ok
@@ -126,7 +148,7 @@ loop(Process,PidParent,GraphParent,PendingSC,Renaming) ->
              {renamed,NProcess,NRenaming} -> 
              	loop(NProcess,PidParent,NGraphParent,NPendingSC,NRenaming);
              NProcess ->
-             	%io:format("Loop (~p) from ~p to ~p \n",[self(),Process,NProcess]),
+             	%io:format("Loop (~p) from ~p to ~p \n",[get_self(),Process,NProcess]),
              	loop(NProcess,PidParent,NGraphParent,NPendingSC,Renaming)
         end.
         
@@ -138,8 +160,9 @@ loop(Process,PidParent,GraphParent,PendingSC,Renaming) ->
 
 process({prefix,_,Channels,Event,Process,_}=Prefixing,PidParent,GraphParent,Renaming) -> 
 	ExecutedEvent = rename_event(Event,Renaming),
+	% io:format("\tProcess: ~p\n", [Channels]),
 	prefixing_loop(PidParent,Prefixing,Process,GraphParent,
-	              {event,ExecutedEvent,Channels,self(),self(),Prefixing,GraphParent},
+	              {event,ExecutedEvent,Channels,get_self(),get_self(),Prefixing,GraphParent},
 	              Channels);
 process({'|~|',PA,PB,_},_,_,_) ->
 	process_choice(PA,PB,true);
@@ -148,7 +171,7 @@ process({'[]',PA,PB,_},PidParent,GraphParent,Renaming) ->
 	process_external_choice(PA_,PB_,PidParent,GraphParent,Renaming);
 process({'ifte',Condition,PA,PB,_,_,_},_,_,_) ->
 	Event = list_to_atom("   tau -> Condition Choice value "++atom_to_list(Condition)),
-	printer!{print,Event,self()},
+	send_message2regprocess(printer,{print,Event,get_self()}),
 	receive
 		{printed,Event} -> ok
 	end,
@@ -159,8 +182,8 @@ process({'ifte',Condition,PA,PB,_,_,_},_,_,_) ->
 process({agent_call,_,ProcessName,Arguments},_,_,_) ->
         Event = list_to_atom("   tau -> Call to process "++atom_to_list(ProcessName)
                                          ++printer:string_arguments(Arguments)),
-	printer!{print,Event,self()},
-	codeserver!{ask_code,ProcessName,Arguments,self()},
+	send_message2regprocess(printer,{print,Event,get_self()}),
+	send_message2regprocess(codeserver,{ask_code,ProcessName,Arguments,get_self()}),
 	receive
 		{printed,Event} -> ok
 	end,
@@ -173,14 +196,14 @@ process({sharing,{closure,Events},PA,PB,_},PidParent,GraphParent,Renaming) ->
 process({'|||',PA,PB,_},PidParent,GraphParent,Renaming) ->
         {PA_,PB_} = random_branches(PA,PB),
 	process_parallelism(PA_,PB_,[],PidParent,GraphParent,Renaming);
-process({procRenaming,{rename,Original,Renamed},P,_},_,_,Renaming) ->
-	{renamed,P,[{Original,Renamed}|Renaming]};
+process({procRenaming,ListRenamings,P,_},_,_,Renaming) ->
+	{renamed,P,[ListRenamings|Renaming]};
 process({'\\',P,{closure,Events},_},_,_,Renaming) ->
-	{renamed,P,[{Event,'   tau -> Hidding'} || Event <- Events] ++Renaming};
+	{renamed,P,[[{rename,Event,'   tau -> Hidding'}] || Event <- Events] ++ Renaming};
 process({stop,_},_,_,_) ->
-	printer!{print,'   tau -> STOP',self()},
+	send_message2regprocess(printer,{print,'   tau -> STOP',get_self()}),
 	receive
-		{printed,'   tau -> STOP'} -> {stopped,self()}
+		{printed,'   tau -> STOP'} -> {stopped,get_self()}
 	end.
 	
 	
@@ -195,11 +218,14 @@ prefixing_loop(Pid,Prefixing,Process,GraphParent,Message,Channels) ->
 	Pid!Message,
 	receive 
 		{executed,_,Pid,SelectedChannels} ->
+				% io:format("\tEXE_Chan: ~p\n\tEXE_SCHan: ~p\n",[Channels,SelectedChannels]),
 		        Dict = createDict(Channels,SelectedChannels),
-		        %io:format("Antes: ~p\n",[Prefixing]),
 		        NPrefixing = csp_parsing:replace_parameters(Prefixing,Dict),
-		        %io:format("Despues: ~p\n",[NPrefixing]),
-		        printer!{create_graph,NPrefixing,GraphParent,self()},
+		        % io:format("Dict: ~p\nAntes: ~p\nDespues: ~p\n",[Dict,Prefixing,NPrefixing]),
+		        {event,ExecutedEvent,_,_,_,_,_} = Message,
+		        % io:format("ExecutedEvent: ~p\n",[ExecutedEvent]),
+		        % io:format("SelectedChannels: ~p\n",[SelectedChannels]),
+		        send_message2regprocess(printer,{create_graph,{renamed_event,ExecutedEvent,NPrefixing},GraphParent,get_self()}),
 				{prefix,_,_,_,NProcess,_} = NPrefixing,
 				receive
 			           {created,NParent} -> 
@@ -214,7 +240,7 @@ prefixing_loop(Pid,Prefixing,Process,GraphParent,Message,Channels) ->
 			prefixing_loop(Pid,Prefixing,Process,GraphParent,Message,Channels);
 		rejected_all ->
 		%timer:sleep(50),
-			{{stopped,self()},GraphParent}
+			{{stopped,get_self()},GraphParent}
 	end.
 	
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -230,7 +256,7 @@ process_choice(PA,PB,PrintTau) ->
 	case PrintTau of
 	     true ->
 		Event = list_to_atom("   tau -> Internal Choice. Branch "++integer_to_list(Selected)),
-		printer!{print,Event,self()},
+		send_message2regprocess(printer,{print,Event,get_self()}),
 		receive
 			{printed,Event} -> ok
 		end;
@@ -249,39 +275,39 @@ process_choice(PA,PB,PrintTau) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
 process_parallelism(PA,PB,Events,PidParent,GraphParent,Renaming) ->
-	PidA = spawn(csp_process,loop,[PA,self(),GraphParent,[],[]]),
-	PidB = spawn(csp_process,loop,[PB,self(),GraphParent,[],[]]),
-	%io:format("Parallelisme fill de ~p: ~p\n",[self(),{PidA,PidB}]),
+	PidA = spawn(csp_process,loop,[PA,get_self(),GraphParent,[],[]]),
+	PidB = spawn(csp_process,loop,[PB,get_self(),GraphParent,[],[]]),
+	%io:format("Parallelisme fill de ~p: ~p\n",[get_self(),{PidA,PidB}]),
 	parallelism_loop(PidA,PidB,Events,PidParent,[],Renaming,{{},{}}).
 	
 parallelism_loop(PidA,PidB,SyncEvents,PidParent,Finished,Renaming,TemporalGraphs) ->
 	case length([Fin || Fin = {_,NodesFinished} <- Finished, NodesFinished =/=[]]) of
 	     2 -> 
-	       {finished,self(),lists:append([NodesFinished || 
+	       {finished,get_self(),lists:append([NodesFinished || 
 		                              {_,NodesFinished} <- Finished])};
-%	       printer!{print,tick_SP,self()},
+%	       send_message2regprocess(printer,{print,tick_SP,get_self()}),
 %	       receive
 %		      {printed,tick_SP} -> 
-%		         {finished,self(),
+%		         {finished,get_self(),
 %		                   lists:append([NodesFinished || 
 %		                                 {_,NodesFinished} <- Finished])}
 %	       end;
 	     _ ->
 	     	case length(Finished) of
 	     		  2 -> 
-	     		  	{stopped,self()};
+	     		  	{stopped,get_self()};
 	     		  _ -> 
-	     		  	%io:format("A la escolta SP ~p\n",[self()]),
+	     		  	%io:format("A la escolta SP ~p\n",[get_self()]),
 					receive
 					   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,PidAorB,true} -> 
 					      case length([Fin || Fin = {_,NodesFinished} <- Finished, 
 					      						NodesFinished =/=[]]) of
 						   1 -> 
 						       PidParent!{finished_skip,SPANSKIP,GraphParentSkip,
-						                  PidSkip,self(),true};
+						                  PidSkip,get_self(),true};
 						   _ -> 
 						       PidParent!{finished_skip,SPANSKIP,GraphParentSkip,
-						                  PidSkip,self(),false} 
+						                  PidSkip,get_self(),false} 
 					      end,
 					      receive
 					        {finished,PidAorB,NodesFinished} ->
@@ -313,7 +339,7 @@ parallelism_loop(PidA,PidB,SyncEvents,PidParent,Finished,Renaming,TemporalGraphs
 					       parallelism_event(Message,PidA,PidB,SyncEvents,
 					   	                  PidParent,Finished,Renaming,TemporalGraphs);
 					   {event,_,_,PidB,_,_,_} = Message ->
-					   	parallelism_event(Message,PidA,PidB,SyncEvents,
+					   		parallelism_event(Message,PidA,PidB,SyncEvents,
 					   	                  PidParent,Finished,Renaming,TemporalGraphs)        
 					end
 	     	end 
@@ -321,6 +347,7 @@ parallelism_loop(PidA,PidB,SyncEvents,PidParent,Finished,Renaming,TemporalGraphs
 	
 parallelism_event({event,Event,Channels,Pid,PidPrefixing,Prefixing,GraphParent},PidA,PidB,
                   SyncEvents,PidParent,Finished,Renaming,TemporalGraphs) ->
+	% io:format("\tparallelism: ~p\n", [Channels]),
 	ExecutedEvent = rename_event(Event,Renaming),
 	NTemporalGraphs = 
 	        case Pid =:= PidA of
@@ -343,8 +370,8 @@ parallelism_event({event,Event,Channels,Pid,PidPrefixing,Prefixing,GraphParent},
 process_event(Event,ExecutedEvent,PidA,PidB,PidPrefixingA,ChannelsA,
               SyncEvents,PidParent,PrefixingA,GraphParentA,
               TemporalGraphs,PidAOri,PidBOri,Finished) ->
-%        io:format("SP ~p processa event ~p enviat per ~p\n",
-%                  [self(),Event,PidA]),
+       % io:format("SP ~p processa event ~p enviat per ~p\n",
+       %           [get_self(),Event,PidA]),
 	case lists:member(Event,SyncEvents) of
 	     true ->
 	       	NTemporalGraphs_ = remove_temporal_graph(PidA,TemporalGraphs),
@@ -356,7 +383,8 @@ process_event(Event,ExecutedEvent,PidA,PidB,PidPrefixingA,ChannelsA,
 			  		NTemporalGraphs;
 	             _ -> 
 	              	receive
-	              	    {event,Event,ChannelsB,PidB,PidPrefixingB,_,_} -> 	     
+	              	    {event,Event,ChannelsB,PidB,PidPrefixingB,_,_} -> 
+	              	    	% io:format("\t\tChannelsA: ~p\n\t\tChannelsB: ~p\n\t\tCreate: ~p\n",[ChannelsA,ChannelsB,create_channels(ChannelsA,ChannelsB,[])]),     
 	              	        case create_channels(ChannelsA,ChannelsB,[]) of
 	              	             no_compatible ->
 	              	                PidA!rejected,
@@ -373,6 +401,7 @@ process_event(Event,ExecutedEvent,PidA,PidB,PidPrefixingA,ChannelsA,
 	              	    0 -> 
 	              	    	receive
 	              	    	   {event,Event,ChannelsB,PidB,PidPrefixingB,_,_} ->
+	              	    	   	% io:format("\t\tChannelsA: ~p\n\t\tChannelsB: ~p\n\t\tCreate: ~p\n",[ChannelsA,ChannelsB,create_channels(ChannelsA,ChannelsB,[])]),     
 		              	    	case create_channels(ChannelsA,ChannelsB,[]) of
 		              	            no_compatible ->
 		              	                PidA!rejected,
@@ -387,18 +416,18 @@ process_event(Event,ExecutedEvent,PidA,PidB,PidPrefixingA,ChannelsA,
 		              	        end;
 			                   Message ->
 			                        PidA!rejected,
-			                   		self()!Message,
+			                   		get_self()!Message,
 			                   		NTemporalGraphs		                   
 	              	    	end
 	              	end
 	        end;
    	     false -> 
-   	         PidParent!{event,ExecutedEvent,ChannelsA,self(),
+   	         PidParent!{event,ExecutedEvent,ChannelsA,get_self(),
    	                    PidPrefixingA,PrefixingA,GraphParentA},
                  receive
                    {executed,PidPrefixingA,PidParent,SelectedChannels} -> 
                       NTemporalGraphs = remove_temporal_graph(PidA,TemporalGraphs),
-                      PidA!{executed,PidPrefixingA,self(),SelectedChannels},
+                      PidA!{executed,PidPrefixingA,get_self(),SelectedChannels},
                       receive
                          {sync_info,_} = Message ->
                             PidParent ! Message
@@ -412,13 +441,13 @@ process_event(Event,ExecutedEvent,PidA,PidB,PidPrefixingA,ChannelsA,
 
 process_both_branches(ExecutedEvent,PidA,PidPrefixingA,PidB,PidPrefixingB,
                       SelectedChannels,PidParent,NTemporalGraphs) ->	
-	PidParent!{event,ExecutedEvent,SelectedChannels,self(),self(),{},-1},
+	PidParent!{event,ExecutedEvent,SelectedChannels,get_self(),get_self(),{},-1},
 	receive
 	   {executed,_,PidParent,FinallySelectedChannels} ->
 	       NNTemporalGraphs_ = remove_temporal_graph(PidA,NTemporalGraphs),
 	       NNTemporalGraphs = remove_temporal_graph(PidB,NNTemporalGraphs_),
-	       PidA!{executed,PidPrefixingA,self(),FinallySelectedChannels},
-	       PidB!{executed,PidPrefixingB,self(),FinallySelectedChannels},
+	       PidA!{executed,PidPrefixingA,get_self(),FinallySelectedChannels},
+	       PidB!{executed,PidPrefixingB,get_self(),FinallySelectedChannels},
 	       
 	       receive
 	           {sync_info,NodesA} ->
@@ -448,7 +477,7 @@ process_both_branches(ExecutedEvent,PidA,PidPrefixingA,PidB,PidPrefixingB,
 	end.	
 
 print_sync(NodeA,NodeB) ->
-	printer!{print_sync,NodeA,NodeB,self()},
+	send_message2regprocess(printer,{print_sync,NodeA,NodeB,get_self()}),
 	receive
            {printed_sync,NodeA,NodeB} ->
    	       ok
@@ -456,7 +485,7 @@ print_sync(NodeA,NodeB) ->
 	
 	
 create_channels([],[],FinalChannels) -> 
-	FinalChannels;
+	lists:reverse(FinalChannels);
 create_channels([{out,Channel}|CA],[{in,_}|CB],FinalChannels) ->
 	create_channels(CA,CB,[{out,Channel}|FinalChannels]);
 create_channels([{out,Channel}|CA],[{'inGuard',_,Channels}|CB],FinalChannels) ->
@@ -492,23 +521,23 @@ create_channels(ChannelsA,ChannelsB,FinalChannels) ->
 
 	
 process_external_choice(PA,PB,PidParent,GraphParent,Renaming) -> 
-	PidA = spawn(csp_process,loop,[PA,self(),GraphParent,[],[]]),
-	PidB = spawn(csp_process,loop,[PB,self(),GraphParent,[],[]]),
-	%io:format("External choice fill de ~p: ~p\n",[self(),{PidA,PidB}]),
+	PidA = spawn(csp_process,loop,[PA,get_self(),GraphParent,[],[]]),
+	PidB = spawn(csp_process,loop,[PB,get_self(),GraphParent,[],[]]),
+	%io:format("External choice fill de ~p: ~p\n",[get_self(),{PidA,PidB}]),
 	external_choice_loop(PidA,PidB,PidParent,Renaming).
 	
 
 external_choice_loop(PidA,PidB,PidParent,Renaming) ->
-	%io:format("A la escolta EC ~p\n",[self()]),
+	%io:format("A la escolta EC ~p\n",[get_self()]),
 	receive
 	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,true} ->
-	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,self(),true},
+	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),true},
 	     receive
 	        {finished,Pid,NodesFinished} -> 
 	           finish_external_choice(NodesFinished)
 	     end;
 	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,_,false} ->
-	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,self(),false},
+	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),false},
 	     external_choice_loop(PidA,PidB,PidParent,Renaming);
 	   {finished,_,NodesFinished} ->
 	     finish_external_choice(NodesFinished);
@@ -518,12 +547,12 @@ external_choice_loop(PidA,PidB,PidParent,Renaming) ->
 	     one_branch_loop(PidA,PidParent,Renaming);
 	   {event,Event,Channels,PidA,PidPrefixing,Prefixing,GraphParent} ->
 	     ExecutedEvent = rename_event(Event,Renaming),
-	     PidParent!{event,ExecutedEvent,Channels,self(),PidPrefixing,Prefixing,GraphParent},
+	     PidParent!{event,ExecutedEvent,Channels,get_self(),PidPrefixing,Prefixing,GraphParent},
 	     process_event_ec(Renaming,PidPrefixing,PidParent,PidA,
 	                      PidA,PidB);
 	   {event,Event,Channels,PidB,PidPrefixing,Prefixing,GraphParent} ->
 	     ExecutedEvent = rename_event(Event,Renaming),
-	     PidParent!{event,ExecutedEvent,Channels,self(),PidPrefixing,Prefixing,GraphParent},
+	     PidParent!{event,ExecutedEvent,Channels,get_self(),PidPrefixing,Prefixing,GraphParent},
 	     process_event_ec(Renaming,PidPrefixing,PidParent,PidB,
 	                      PidA,PidB)
 	end.	
@@ -531,7 +560,7 @@ external_choice_loop(PidA,PidB,PidParent,Renaming) ->
 process_event_ec(Renaming,PidPrefixing,PidParent,Pid,PidA,PidB) ->
 	     receive
 	     	{executed,PidPrefixing,PidParent,SelectedChannels} -> 
-	     	      Pid!{executed,PidPrefixing,self(),SelectedChannels},
+	     	      Pid!{executed,PidPrefixing,get_self(),SelectedChannels},
                       receive
                          {sync_info,_} = Message ->
                             PidParent ! Message
@@ -546,27 +575,27 @@ process_event_ec(Renaming,PidPrefixing,PidParent,Pid,PidA,PidB) ->
 	     end.
 
 one_branch_loop(Pid,PidParent,Renaming) ->
-	%io:format("A la escolta OP ~p (selected ~p)\n",[self(),Pid]),
+	%io:format("A la escolta OP ~p (selected ~p)\n",[get_self(),Pid]),
 	receive
 	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,true} ->
-	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,self(),true},
+	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),true},
 	     receive 
 	       {finished,Pid,NodesFinished} -> 
-	          {finished,self(),NodesFinished}
+	          {finished,get_self(),NodesFinished}
 	     end;
 	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,false} ->
-	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,self(),false},
+	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),false},
 	     one_branch_loop(Pid,PidParent,Renaming);
 	   {finished,Pid,NodesFinished} ->
-	     {finished,self(),NodesFinished};
+	     {finished,get_self(),NodesFinished};
 	   {stopped,Pid} ->
-	     {stopped,self()};
+	     {stopped,get_self()};
 	   {event,Event,Channels,Pid,PidPrefixing,Prefixing,GraphParent} ->
 	     ExecutedEvent = rename_event(Event,Renaming),
-	     PidParent!{event,ExecutedEvent,Channels,self(),PidPrefixing,Prefixing,GraphParent},
+	     PidParent!{event,ExecutedEvent,Channels,get_self(),PidPrefixing,Prefixing,GraphParent},
 	     receive
 		   {executed,PidPrefixing,PidParent,SelectedChannels} -> 
-		        Pid!{executed,PidPrefixing,self(),SelectedChannels},
+		        Pid!{executed,PidPrefixing,get_self(),SelectedChannels},
 	                receive
 	                   {sync_info,_} = Message ->
 	                      PidParent ! Message
@@ -579,10 +608,10 @@ one_branch_loop(Pid,PidParent,Renaming) ->
 	     
 
 finish_external_choice(NodesFinished) ->
-       printer!{print,tick_EC,self()},
+       send_message2regprocess(printer,{print,tick_EC,get_self()}),
        receive
 	      {printed,tick_EC} -> 
-	         {finished,self(),NodesFinished}
+	         {finished,get_self(),NodesFinished}
        end.
        
 
@@ -593,22 +622,33 @@ finish_external_choice(NodesFinished) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 	
-rename_event(Event,[{Event,Renamed}|TailRenaming]) ->
-	rename_event(Renamed,TailRenaming);
-rename_event(Event,[_|TailRenaming]) ->
-	rename_event(Event,TailRenaming);
-rename_event(Event,[]) -> Event.
+rename_event(Event,[List|TailRenaming]) ->
+	random:seed(now()),
+	ShuffledList = 
+		[X || {_,X} <- lists:sort([ {random:uniform(), N} || N <- List])],
+	rename_event(rename_event_list(Event,ShuffledList),TailRenaming);
+% rename_event(Event,[_|TailRenaming]) ->
+% 	rename_event(Event,TailRenaming);
+rename_event(Event,[]) -> 
+	Event.
+
+rename_event_list(Event,[{rename,Event,Renamed}|_]) ->
+	Renamed;
+rename_event_list(Event,[_|Tail]) ->
+	rename_event_list(Event,Tail);
+rename_event_list(Event,[]) ->
+	Event.
 
 %vore que no quede una unica cria a aquesta funció
 print_skip(SPAN,GraphParent,PidSkip,IsFinal) ->	
-	printer!{create_graph,{skip,SPAN},GraphParent,self()},
+	send_message2regprocess(printer,{create_graph,{skip,SPAN},GraphParent,get_self()}),
 	NGraphParent = 
 		receive
 		   {created,NGraphParent_} -> NGraphParent_
 		end,
 	case IsFinal of
-	     true -> printer!{print,'   tick',self()};
-	     false -> printer!{print,'   tau',self()}
+	     true -> send_message2regprocess(printer,{print,'   tick',get_self()});
+	     false -> send_message2regprocess(printer,{print,'   tau',get_self()})
 	end,
 	receive
 	   {printed,'   tick'} -> 
@@ -621,36 +661,37 @@ print_skip(SPAN,GraphParent,PidSkip,IsFinal) ->
 remove_temporal_graph(Pid,TemporalGraphs) ->	
         case TemporalGraphs of
              {{Pid,IdAno},Other} ->
-	        printer!{remove_graph_no_ided,IdAno,self()},
-		receive
-		    {removed,IdAno} ->
-		    	{{},Other}
-		end;
+				send_message2regprocess(printer,{remove_graph_no_ided,IdAno,get_self()}),
+				receive
+				    {removed,IdAno} ->
+				    	{{},Other}
+				end;
              {Other,{Pid,IdAno}} ->
-                printer!{remove_graph_no_ided,IdAno,self()},
-		receive
-		    {removed,IdAno} ->
-		    	{Other,{}}
-		end;
-             _ -> TemporalGraphs
+				send_message2regprocess(printer,{remove_graph_no_ided,IdAno,get_self()}),
+				receive
+				    {removed,IdAno} ->
+				    	{Other,{}}
+				end;
+             _ -> 
+             	TemporalGraphs
         end.
         
 create_temporal_graph(Pid,{TGraphA,TGraphB},Prefixing,GraphParent,PidA,PidB) ->	 
-        case Prefixing of 
-             {} ->
-                {TGraphA,TGraphB};
-             _ ->
-		printer!{create_graph_no_ided,Prefixing,GraphParent,self()},
-		receive
-		    {created_no_id,IdAno} ->
-		    	ok
-		end,
-		case Pid of
-		     PidA ->
-		        {{Pid,IdAno},TGraphB};
-		     PidB ->
-		     	{TGraphA,{Pid,IdAno}}
-		end
+    case Prefixing of 
+         {} ->
+            {TGraphA,TGraphB};
+         _ ->
+			send_message2regprocess(printer,{create_graph_no_ided,Prefixing,GraphParent,get_self()}),
+			receive
+			    {created_no_id,IdAno} ->
+			    	ok
+			end,
+			case Pid of
+			     PidA ->
+			        {{Pid,IdAno},TGraphB};
+			     PidB ->
+			     	{TGraphA,{Pid,IdAno}}
+			end
 	end.	
 	
 random_branches(PA,PB) ->
@@ -661,14 +702,36 @@ random_branches(PA,PB) ->
 		2 -> {PB,PA}
 	end. 
 
-select_channels([]) ->
-	[];	
-select_channels([{out,Channel}|Tail]) ->
-	[Channel|select_channels(Tail)];
-select_channels([{'inGuard',_,ChannelsList}|Tail]) ->
+select_channels([{out,Channel}|Tail],Event) ->
+	% io:format("Event: ~p\nChannel: ~p\n",[Event,Channel]),	
+	[Channel|select_channels(Tail,Event)];
+select_channels([{'inGuard',_,ChannelsList}|Tail],Event) ->
         random:seed(now()),
         Selected = random:uniform(length(ChannelsList)),
-	[lists:nth(Selected,ChannelsList)|select_channels(Tail)].
+	[lists:nth(Selected,ChannelsList)|select_channels(Tail,Event)];
+select_channels([{in,_}|Tail],Event) ->
+	send_message2regprocess(codeserver,{ask_channel,Event,get_self()}),
+	% io:format("Event: ~p\n",[Event]),
+	% ChannelsR = 
+	Channels = 
+		receive
+			{channel_reply,Channels_} -> Channels_
+		end,
+	% Channels = lists:reverse(ChannelsR),
+	% io:format("Channels_: ~p\n",[Channels_]),
+	NTail = 
+		try 
+			lists:sublist(Tail,length(Channels),length(Tail))
+		catch
+			_:_ -> []
+		end,
+	% io:format("Channels: ~p\n",[Channels]),
+	Channels ++ select_channels(NTail,Event);
+select_channels(Other = [_|_],_) ->
+	% io:format("Other type of channel: ~p\n",[Other]),
+	[];
+select_channels([],_) ->
+	[].
 	
 create_channels_string([]) ->
 	"";
@@ -681,11 +744,32 @@ create_channels_string([Channel|Tail]) when is_integer(Channel) ->
 create_channels_string([Channel|Tail]) when is_atom(Channel) ->
 	atom_to_list(Channel)++"."++create_channels_string(Tail).
 	
-createDict([{'inGuard',Var,_}|TC],[Selected|TS]) ->
+createDict([{'inGuard',Var,_}|TC],[Selected|TS]) when is_list(Var) ->
 	[{list_to_atom(Var),Selected}|createDict(TC,TS)];
-createDict([{in,Var}|TC],[Selected|TS]) ->
+createDict([{'inGuard',Var,_}|TC],[Selected|TS]) when is_atom(Var) ->
+	[{Var,Selected}|createDict(TC,TS)];
+createDict([{in,Var}|TC],[Selected|TS]) when is_list(Var) ->
+	[{list_to_atom(Var),Selected}|createDict(TC,TS)];
+createDict([{in,Var}|TC],[Selected|TS]) when is_atom(Var) ->
 	[{Var,Selected}|createDict(TC,TS)];
 createDict([{out,_}|TC],[_|TS]) ->
 	createDict(TC,TS);
 createDict([],[]) ->
 	[].
+
+send_message2regprocess(Process,Message) ->
+ 	ProcessPid = whereis(Process),
+ 	case ProcessPid of 
+ 		undefined -> 
+ 			no_sent;
+ 		_ -> 
+         	case is_process_alive(ProcessPid) of 
+         		true -> 
+			        ProcessPid!Message;
+				false -> 
+					no_sent
+			end
+	end.
+
+get_self() ->
+	catch self().
