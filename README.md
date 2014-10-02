@@ -43,7 +43,7 @@ After this simple two steps, CSP-Tracker is ready to be used.
 Using CSP-Tracker
 -------------
 
-First of all, you need to write down your CSP specification using the syntax used by [ProB](http://www.stups.uni-duesseldorf.de/ProB/index.php5/CSP-M_Syntax). You can find some examples in the directory '[examples](https://github.com/mistupv/csp_tracker/tree/master/examples)', in the '[benchmark](https://github.com/mistupv/csp_tracker/tree/master/bench)' suite directory and also in our [web interface](http://kaz.dsic.upv.es/csp_tracker.html).
+First of all, you need to write down your CSP specification using the syntax used by [ProB](http://www.stups.uni-duesseldorf.de/ProB/index.php5/CSP-M_Syntax). You can find some examples in the directory '[examples](https://github.com/mistupv/csp_tracker/tree/master/examples)', in the '[benchmark](https://github.com/mistupv/csp_tracker/tree/master/benchmarks)' suite directory and also in our [web interface](http://kaz.dsic.upv.es/csp_tracker.html).
 
 In order to execute and generate the track of a CSP specification into a file the first step is to run Erlang with the following command from the main directory of the reposirtory.
 
