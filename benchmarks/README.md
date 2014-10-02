@@ -1,4 +1,4 @@
-CSP-Tracker: benchmarksmarks collection
+CSP-Tracker: benchmarks collection
 =================================
 
 [Alternating Bit Protocol](https://github.com/mistupv/csp_tracker/tree/master/benchmarks/ABP.csp) by Bill Roscoe
