@@ -1,10 +1,23 @@
 -module(printer).
 
--export([loop/2,nonid_loop/0,string_arguments/1,add_to_file/2]).
+-export([loop/2, nonid_loop/0, digraph_loop/0, 
+		string_arguments/1, add_to_file/2,
+		string_vertex_dot/4, string_edge_dot/3]).
 
 
 loop(Option,LiveSaving) ->
-	register(nonid, spawn(printer,nonid_loop,[])),
+	case lists:member(nonid,registered()) of
+	     true -> 
+	     	ok;
+	     false -> 
+	     	register(nonid, spawn(printer,nonid_loop,[]))
+	end,
+	case lists:member(digraph,registered()) of
+	     true -> 
+	     	ok;
+	     false -> 
+	     	register(digraph, spawn(printer,digraph_loop,[]))
+	end,
 	case Option of
 	     only_externals -> loop(0,false,LiveSaving,{{0,0,0,0},"",""});
 	     all -> loop(0,true,LiveSaving,{{0,0,0,0},"",""})
@@ -42,9 +55,9 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 		{print_sync,NodeA,NodeB,Pid} ->
 		     Pid!{printed_sync,NodeA,NodeB},
 		     		     {{N,E,S,_},G,Trace} = State,
+		     digraph!{add, edge, NodeA, NodeB, "sync"},
 		     StringSyncEdge = 
-		     	integer_to_list(NodeA)++" -> "++integer_to_list(NodeB)
-		            ++"[style=dotted, color=red, arrowhead=none,constraint=false];\n",
+		  		string_edge_dot(NodeA, NodeB, "sync"),
 		     NG = 
 			     case LiveSaving of 
 			     	true ->
@@ -101,15 +114,20 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 %			Pid ! {printed_graph,Graph,IdAno},
 %			loop(Free,PrintInternals);
 		{info_graph,Pid} ->
-			% Because it is only called when finished
-			Pid!{info_graph, State},
-			finish_computation();
+			% Because it is only called when finished 
+			digraph!{get, self()},
+			receive
+				{digraph,G} ->
+					Pid!{info_graph, {State, G}},
+					finish_computation()
+			end;
 		stop -> 
 			finish_computation()
 	end.
 	
 finish_computation() ->
 	nonid!stop,
+	digraph!stop,
 	ok.
 
 print_event(Event) ->
@@ -281,12 +299,8 @@ create_graph({';',NodesFinished,SPAN},Free) ->
 	 string_vertex(Free,";",SPAN),Free+1,Free}.
 
 string_vertex(Id,Label,SPAN) ->
-	{FL,FC,TL,TC} = extractFromTo(SPAN,Label),
-	%string_vertex(Id,Label).
-	integer_to_list(Id)++" "++"[shape=ellipse, label=\""
-	++integer_to_list(Id)++" .- " ++ Label ++
-	"\\nfrom ("++ integer_to_list(FL) ++ "," ++ integer_to_list(FC) ++
-	") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")\\l\"];\n".
+	digraph!{add, vertex, Id, {Label, SPAN}},
+	string_vertex_dot(Id,Label,SPAN,[]).
 	
 string_vertex_no_ided(Id,Label,SPAN) ->
 	{FL,FC,TL,TC} = extractFromTo(SPAN,Label),
@@ -300,11 +314,32 @@ string_vertex_no_ided(Id,Label,SPAN) ->
 %	integer_to_list(Id)++" "++"[shape=ellipse, label=\""
 %	++integer_to_list(Id)++" .- " ++ Label ++ "\"];\n".
 	
-string_edge(From,To) ->
-	integer_to_list(From)++" -> "++integer_to_list(To)
-	++" [color=black, penwidth=3];\n".
+string_edge(From, To) ->
+	digraph!{add, edge, From, To, "control"},
+	string_edge_dot(From, To, "control").
 	
+string_vertex_dot(Id,Label,SPAN, Slice) ->
+	Style = 
+		case lists:member(Id, Slice) of 
+			true ->  
+				" style=filled color=\"gray\" fontcolor=\"black\" fillcolor=\"gray\"";
+			false -> 
+				""
+		end,
+	{FL,FC,TL,TC} = extractFromTo(SPAN,Label),
+	%string_vertex(Id,Label).
+	integer_to_list(Id) ++ " " ++ "[shape=ellipse, label=\""
+	++ integer_to_list(Id) ++ " .- " ++ Label 
+	++ "\\nfrom (" ++ integer_to_list(FL) ++ "," ++ integer_to_list(FC) 
+	++ ") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")\\l\""
+	++ Style ++ "];\n".
 
+string_edge_dot(From, To, "control") ->
+	integer_to_list(From) ++ " -> " ++ integer_to_list(To)
+	++ " [color=black, penwidth=3];\n";
+string_edge_dot(NodeA, NodeB, "sync") ->
+	integer_to_list(NodeA) ++ " -> " ++ integer_to_list(NodeB)
+	++ "[style=dotted, color=red, arrowhead=none,constraint=false];\n".
 	
 string_list([Event]) -> 
 	atom_to_list(Event);
@@ -373,5 +408,26 @@ nonid_loop(Fresh) ->
 			ok
 	end.
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+digraph_loop() ->
+	digraph_loop({[], []}).
+
+digraph_loop(G = {N, E}) ->
+	receive 
+		{get, Pid} ->
+			Pid!{digraph,G},
+			digraph_loop(G);
+		{add, vertex, V, Label} ->
+			digraph_loop({[{V, Label} | N], E});
+		{add, edge, V1, V2, Label} ->
+			digraph_loop({N, [{V1, V2, Label} | E]});
+		stop ->
+			ok
+	end.
+ 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

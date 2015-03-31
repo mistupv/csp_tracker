@@ -23,7 +23,7 @@ first(FirstProcess,Timeout,NoOutput) ->
 				InfoGraph_
 		after 
 			1000 -> 
-				{{0,0,0,now()},"",""}
+				{{{0,0,0,now()},"",""},{[],[]}}
 		end,
 	send_message2regprocess(printer,stop),
 	send_message2regprocess(codeserver,stop),

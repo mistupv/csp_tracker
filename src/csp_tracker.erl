@@ -76,7 +76,7 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 					end,					
 					%io:format("Timout: ~p\n",[Timeout]),
 					TimeBeforeExecuting = now(),
-					{{N,E,S,TimeAfterExecuting},G,Trace} = csp_process:first(FirstProcess,Timeout,NoOutput),
+					{{{N,E,S,TimeAfterExecuting},G,Trace}, DigraphContent} = csp_process:first(FirstProcess,Timeout,NoOutput),
 					%TimeAfterExecuting = now(),
 					case Timeout of
 						infinity -> 
@@ -85,23 +85,62 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 							printer:add_to_file(G,NoOutput),
 							case NoOutput of 
 								false ->
-									io:format("\n************Trace*************\n\n~s\n******************************\n",[Trace]);
+									io:format("\n************Trace*************\n\n~s\n",[Trace]);
 								true ->
 									ok 
 							end
 					end,
 					TimeExecuting = timer:now_diff(TimeAfterExecuting, TimeBeforeExecuting),
 					SizeFile = filelib:file_size("track.dot"), 
+					{NodesDigraph, EdgesDigraph} = DigraphContent,
+					Digraph = digraph:new(),
+					[ digraph:add_vertex(Digraph, V, Label) 
+						|| {V, Label} <- NodesDigraph],
+					[ digraph:add_edge(Digraph, V1, V2, Label)  
+						|| {V1, V2, Label} <- EdgesDigraph],
+					% io:format("~p\n~p\n", [
+					% 	[digraph:vertex(Digraph, V)  || V <- digraph:vertices(Digraph)], 
+					% 	[digraph:edge(Digraph, E)  || E <- digraph:edges(Digraph)]]),
+					io:format("\n******************************\n"),
+					TotalSlice = csp_slicer:get_total_slices(Digraph),
+					case TotalSlice of 
+						0 ->
+							io:format("Slice not executed.\n");
+						_ ->
+							Answer = 
+								get_answer(
+									"Total of executions is " ++ integer_to_list(TotalSlice) 
+										++ ".\nIn which one are you interested? ",
+									lists:seq(1, TotalSlice) ),
+							Slice = csp_slicer:get_slices(Digraph, Answer),
+							NodesSlice = 
+								lists:flatten([
+									begin 
+										{Id, {Label, SPAN}} = digraph:vertex(Digraph, VD),
+										printer:string_vertex_dot(Id, Label, SPAN, Slice)
+									end || VD <- digraph:vertices(Digraph)]),
+							EdgesSlice = 
+								lists:flatten([
+									begin 
+										{_, V1, V2, Type} = digraph:edge(Digraph, ED),
+										printer:string_edge_dot(V1, V2, Type)
+									end || ED <- digraph:edges(Digraph)]),
+							file:write_file("track_slice.dot", 
+								list_to_binary("digraph csp_track_slice {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
+							os:cmd("dot -Tpdf track_slice.dot > track_slice.pdf")
+					end,
+					io:format("******************************\n"),
 					case NoOutput of 
 						false ->
-							io:format("Total of time converting: ~p ms\n",[TimeConversion/1000]),
-							io:format("Total of time executing: ~p ms\n",[TimeExecuting/1000]),
-							io:format("Total of time: ~p ms\n",[(TimeExecuting + TimeConversion)/1000]),
-							io:format("Total of node: ~p nodes\n",[N]),
-							io:format("Total of control edges: ~p edges\n",[E]),
-							io:format("Total of synchronization edges: ~p edges\n",[S]),
-							io:format("Total of edges: ~p edges\n",[E + S]),
-							io:format("Size of DOT file: ~p bytes\n",[SizeFile]),
+							io:format("\n******************************\n"),
+							io:format("Total of time converting:\t~p ms\n",[TimeConversion/1000]),
+							io:format("Total of time executing:\t~p ms\n",[TimeExecuting/1000]),
+							io:format("Total of time:\t~p ms\n",[(TimeExecuting + TimeConversion)/1000]),
+							io:format("Total of node:\t~p nodes\n",[N]),
+							io:format("Total of control edges:\t~p edges\n",[E]),
+							io:format("Total of synchronization edges:\t~p edges\n",[S]),
+							io:format("Total of edges:\t~p edges\n",[E + S]),
+							io:format("Size of DOT file:\t~p bytes\n",[SizeFile]),
 							io:format("******************************\n");
 						true ->
 							{{N,E,S},TimeConversion,TimeExecuting,TimeConversion + TimeExecuting,SizeFile}
@@ -185,6 +224,19 @@ get_channels_info([_|Pending]) ->
 	get_channels_info(Pending);
 get_channels_info([]) ->
 	[].
+
+get_answer(Message,Answers) ->
+	[_|Answer] = 
+		lists:reverse(io:get_line(Message)),
+	try
+		IntegerAnswer = list_to_integer(lists:reverse(Answer)),
+		case lists:member(IntegerAnswer,Answers) of
+		    true -> IntegerAnswer;
+		    false -> get_answer(Message,Answers)
+		end
+	catch 
+		_:_ -> get_answer(Message,Answers)
+	end.
 
 
 %Prova per veure que pasa quant varios processos intenten matar-se mutuament.	
