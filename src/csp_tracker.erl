@@ -5,7 +5,7 @@
 
 -module(csp_tracker).
 
--export([track/1, track/2, track/3]).
+-export([track/1, track/2, track/3, track_web/3, track_web_slice/1]).
 
 
 track(File) -> track(File,'MAIN', [all,infinity]).
@@ -13,6 +13,29 @@ track(File) -> track(File,'MAIN', [all,infinity]).
 track(File,FirstProcess) -> track(File,FirstProcess,[all,infinity]).
 
 track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
+	FunAnswer = 
+		fun(Digraph, TotalSlice) when TotalSlice > 0 ->
+				Answer = 
+					get_answer(
+						"\nWhich execution are you interested? ",
+						lists:seq(1, TotalSlice) ),
+				slice_from(Digraph,Answer);
+			(_,_) -> ok
+		end,
+	track_common(File, FirstProcess,Options, FunAnswer);
+track(_,_,_) -> io:format("Not valids arguments.\n").
+
+track_web(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
+	track_common(File, FirstProcess,Options, fun(_, _) -> ok end).
+
+track_web_slice(Ex) ->
+	{ok,[NodesDigraph, EdgesDigraph]} = file:consult("track.txt"),
+	Digraph = build_digraph(NodesDigraph, EdgesDigraph),
+	slice_from(Digraph,Ex),
+	ok.
+
+
+track_common(File, FirstProcess,Options, FunAnswer) ->
 	rewrite_renamings(atom_to_list(File)),
 	NoOutput = lists:member(no_output,Options),
 	TimeBeforeConversion = now(),
@@ -93,63 +116,71 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 					TimeExecuting = timer:now_diff(TimeAfterExecuting, TimeBeforeExecuting),
 					SizeFile = filelib:file_size("track.dot"), 
 					{NodesDigraph, EdgesDigraph} = DigraphContent,
-					Digraph = digraph:new(),
-					[ digraph:add_vertex(Digraph, V, Label) 
-						|| {V, Label} <- NodesDigraph],
-					[ digraph:add_edge(Digraph, V1, V2, Label)  
-						|| {V1, V2, Label} <- EdgesDigraph],
-					[_,{memory,Words},_] = digraph:info(Digraph),
-					% io:format("~p\n~p\n", [
+					Digraph = build_digraph(NodesDigraph, EdgesDigraph),
+					% io:format("~p.\n~p.\n", [
 					% 	[digraph:vertex(Digraph, V)  || V <- digraph:vertices(Digraph)], 
 					% 	[digraph:edge(Digraph, E)  || E <- digraph:edges(Digraph)]]),
+					TrackStr = 
+						io_lib:format("~p.\n~p.\n", [NodesDigraph, EdgesDigraph]),
+					file:write_file("track.txt", list_to_binary(TrackStr)),
+					[_,{memory,Words},_] = digraph:info(Digraph),
+					Result = 
+						case NoOutput of 
+							false ->
+								io:format("\n******************************\n"),
+								io:format("Total of time converting:\t~p ms\n",[TimeConversion/1000]),
+								io:format("Total of time executing:\t~p ms\n",[TimeExecuting/1000]),
+								io:format("Total of time:\t~p ms\n",[(TimeExecuting + TimeConversion)/1000]),
+								io:format("Total of node:\t~p nodes\n",[N]),
+								io:format("Total of control edges:\t~p edges\n",[E]),
+								io:format("Total of synchronization edges:\t~p edges\n",[S]),
+								io:format("Total of edges:\t~p edges\n",[E + S]),
+								io:format("Size of DOT file:\t~p bytes\n",[SizeFile]),
+								io:format("Track size in memory:\t~p bytes\n", [Words * erlang:system_info(wordsize)]),
+								io:format("******************************\n");
+							true ->
+								{{N,E,S},TimeConversion,TimeExecuting,TimeConversion + TimeExecuting,SizeFile}
+						end,
 					io:format("\n******************************\n"),
 					TotalSlice = csp_slicer:get_total_slices(Digraph),
 					case TotalSlice of 
 						0 ->
 							io:format("Slice not executed.\n");
 						_ ->
-							Answer = 
-								get_answer(
-									"The slicing criterion was executed " ++ integer_to_list(TotalSlice) 
-										++ " times.\nWhich execution are you interested? ",
-									lists:seq(1, TotalSlice) ),
-							Slice = csp_slicer:get_slices(Digraph, Answer),
-							NodesSlice = 
-								lists:flatten([
-									begin 
-										{Id, {Label, SPAN}} = digraph:vertex(Digraph, VD),
-										printer:string_vertex_dot(Id, Label, SPAN, Slice)
-									end || VD <- digraph:vertices(Digraph)]),
-							EdgesSlice = 
-								lists:flatten([
-									begin 
-										{_, V1, V2, Type} = digraph:edge(Digraph, ED),
-										printer:string_edge_dot(V1, V2, Type)
-									end || ED <- digraph:edges(Digraph)]),
-							file:write_file("track_slice.dot", 
-								list_to_binary("digraph csp_track_slice {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
-							os:cmd("dot -Tpdf track_slice.dot > track_slice.pdf")
+							io:format("The slicing criterion was executed " 
+								++ integer_to_list(TotalSlice) ++ " times.\n"),
+							FunAnswer(Digraph, TotalSlice)
 					end,
 					io:format("******************************\n"),
-					case NoOutput of 
-						false ->
-							io:format("\n******************************\n"),
-							io:format("Total of time converting:\t~p ms\n",[TimeConversion/1000]),
-							io:format("Total of time executing:\t~p ms\n",[TimeExecuting/1000]),
-							io:format("Total of time:\t~p ms\n",[(TimeExecuting + TimeConversion)/1000]),
-							io:format("Total of node:\t~p nodes\n",[N]),
-							io:format("Total of control edges:\t~p edges\n",[E]),
-							io:format("Total of synchronization edges:\t~p edges\n",[S]),
-							io:format("Total of edges:\t~p edges\n",[E + S]),
-							io:format("Size of DOT file:\t~p bytes\n",[SizeFile]),
-							io:format("Track size in memory:\t~p bytes\n", [Words * erlang:system_info(wordsize)]),
-							io:format("******************************\n");
-						true ->
-							{{N,E,S},TimeConversion,TimeExecuting,TimeConversion + TimeExecuting,SizeFile}
-					end
+					Result
 			end
-	end;
-track(_,_,_) -> io:format("Not valids arguments.\n").
+	end.
+
+slice_from(Digraph,Answer) ->
+	Slice = csp_slicer:get_slices(Digraph, Answer),
+	NodesSlice = 
+		lists:flatten([
+			begin 
+				{Id, {Label, SPAN}} = digraph:vertex(Digraph, VD),
+				printer:string_vertex_dot(Id, Label, SPAN, Slice)
+			end || VD <- digraph:vertices(Digraph)]),
+	EdgesSlice = 
+		lists:flatten([
+			begin 
+				{_, V1, V2, Type} = digraph:edge(Digraph, ED),
+				printer:string_edge_dot(V1, V2, Type)
+			end || ED <- digraph:edges(Digraph)]),
+	file:write_file("track_slice.dot", 
+		list_to_binary("digraph csp_track_slice {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
+	os:cmd("dot -Tpdf track_slice.dot > track_slice.pdf").
+
+build_digraph(NodesDigraph, EdgesDigraph) ->
+	Digraph = digraph:new(),
+	[ digraph:add_vertex(Digraph, V, Label) 
+		|| {V, Label} <- NodesDigraph],
+	[ digraph:add_edge(Digraph, V1, V2, Label)  
+		|| {V1, V2, Label} <- EdgesDigraph],
+	Digraph.
 
 insert_processes([{}],_) ->
 	ok;
