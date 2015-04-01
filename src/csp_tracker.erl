@@ -85,7 +85,7 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 							printer:add_to_file(G,NoOutput),
 							case NoOutput of 
 								false ->
-									io:format("\n************Trace*************\n\n~s\n",[Trace]);
+									io:format("\n************Trace*************\n\n~s\n******************************\n",[Trace]);
 								true ->
 									ok 
 							end
@@ -98,6 +98,7 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 						|| {V, Label} <- NodesDigraph],
 					[ digraph:add_edge(Digraph, V1, V2, Label)  
 						|| {V1, V2, Label} <- EdgesDigraph],
+					[_,{memory,Words},_] = digraph:info(Digraph),
 					% io:format("~p\n~p\n", [
 					% 	[digraph:vertex(Digraph, V)  || V <- digraph:vertices(Digraph)], 
 					% 	[digraph:edge(Digraph, E)  || E <- digraph:edges(Digraph)]]),
@@ -109,8 +110,8 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 						_ ->
 							Answer = 
 								get_answer(
-									"Total of executions is " ++ integer_to_list(TotalSlice) 
-										++ ".\nIn which one are you interested? ",
+									"The slicing criterion was executed " ++ integer_to_list(TotalSlice) 
+										++ " times.\nWhich execution are you interested? ",
 									lists:seq(1, TotalSlice) ),
 							Slice = csp_slicer:get_slices(Digraph, Answer),
 							NodesSlice = 
@@ -141,6 +142,7 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 							io:format("Total of synchronization edges:\t~p edges\n",[S]),
 							io:format("Total of edges:\t~p edges\n",[E + S]),
 							io:format("Size of DOT file:\t~p bytes\n",[SizeFile]),
+							io:format("Track size in memory:\t~p bytes\n", [Words * erlang:system_info(wordsize)]),
 							io:format("******************************\n");
 						true ->
 							{{N,E,S},TimeConversion,TimeExecuting,TimeConversion + TimeExecuting,SizeFile}
