@@ -35,16 +35,16 @@ calculate_slice(G, [From | Tail], Slice) ->
 				Os = digraph:out_edges(G, From),
 				InfoOs = [ digraph:edge(G, E) || E <- Os ],
 				NList0 =
-					case [V1 || {_,V1,_,"control"} <- InfoEs] of 
+					case [V1||{_,V1,_,"control"} <- InfoEs] of 
 						[] ->
 							Tail;
 						[Next|_] -> 
 							[Next | Tail]
 					end,
 				FromSync = 
-					[ V1 || {_,V1,_,"sync"} <- InfoEs] 
-					++ [ V2 || {_,_,V2,"sync"} <- InfoOs],
-				{NList0 ++ FromSync, [From | Slice]}
+					[ V1 ||{_,V1,_,"sync"} <- InfoEs] 
+					++ [ V2 ||{_,_,V2,"sync"} <- InfoOs],
+				{NList0 ++ FromSync, [From |Slice]}
 		end,
 	calculate_slice(G, NList, NSlice);
 calculate_slice(_G, [], Slice) ->

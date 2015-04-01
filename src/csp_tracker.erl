@@ -157,7 +157,9 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 	end.
 
 slice_from(Digraph,Answer) ->
+	TimeBeforeExecuting = now(),
 	Slice = csp_slicer:get_slices(Digraph, Answer),
+	TimeExecuting = timer:now_diff(now(), TimeBeforeExecuting),
 	NodesSlice = 
 		lists:flatten([
 			begin 
@@ -172,7 +174,8 @@ slice_from(Digraph,Answer) ->
 			end || ED <- digraph:edges(Digraph)]),
 	file:write_file("track_slice.dot", 
 		list_to_binary("digraph csp_track_slice {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
-	os:cmd("dot -Tpdf track_slice.dot > track_slice.pdf").
+	os:cmd("dot -Tpdf track_slice.dot > track_slice.pdf"),
+	io:format("Slice generated.\nTotal of time:\t~p ms\n",[TimeExecuting/1000]).
 
 build_digraph(NodesDigraph, EdgesDigraph) ->
 	Digraph = digraph:new(),
