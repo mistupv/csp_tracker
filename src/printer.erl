@@ -2,8 +2,10 @@
 
 -export([loop/2, nonid_loop/0, digraph_loop/0, 
 		string_arguments/1, add_to_file/2,
-		string_vertex_dot/4, string_edge_dot/3]).
+		string_vertex_dot/4, string_edge_dot/3,
+		string_channels/1, string_list/1]).
 
+-include("csp_tracker.hrl").
 
 loop(Option,LiveSaving) ->
 	case lists:member(nonid,registered()) of
@@ -131,9 +133,9 @@ finish_computation() ->
 	ok.
 
 print_event(Event) ->
-	case csp_parsing:fake_process_name(atom_to_list(Event)) of
-	     true -> "";
-	     false -> io_lib:format("~s\n",[atom_to_list(Event)])
+	case {csp_parsing:fake_process_name(atom_to_list(Event)),atom_to_list(Event) == ?SLICE} of
+	     {false, false} -> io_lib:format("~s\n",[atom_to_list(Event)]);
+	     _ -> ""
 	end.
 	
 add_to_file(String,NoOutput) ->
@@ -235,10 +237,16 @@ create_graph_string_no_ided({prefix,SPANevent,Channels,Event,_,SPANarrow},Parent
 
 
 create_graph({prefix,SPANevent,Channels,Event,_,SPANarrow},Free) ->
-	{string_vertex(Free,atom_to_list(Event)++string_channels(Channels),SPANevent)++
-	 string_vertex(Free+1,"->",SPANarrow)++
-	 string_edge(Free,Free+1),
-	 Free+2,Free+1};
+	Str = 
+		string_vertex(Free, atom_to_list(Event) ++ string_channels(Channels),SPANevent) 
+	 	++ string_vertex(Free+1,"->",SPANarrow) ++ string_edge(Free,Free+1),
+	case  atom_to_list(Event) of 
+		% ?SLICE -> 
+		"sdasd" ->
+			{" ", Free,Free};
+		_ -> 
+			{Str, Free+2,Free+1}
+	end;
 create_graph({renamed_event,Executed,{prefix,SPANevent,Channels,Event,_,SPANarrow}},Free) ->
 	RenamingInfo = 
 		case Executed of 
@@ -247,10 +255,17 @@ create_graph({renamed_event,Executed,{prefix,SPANevent,Channels,Event,_,SPANarro
 			_ ->
 				" [[" ++ atom_to_list(Event) ++ "<-" ++ atom_to_list(Executed) ++ "]]"
 		end,
-	{string_vertex(Free,atom_to_list(Executed)++string_channels(Channels)++RenamingInfo,SPANevent)++
-	 string_vertex(Free+1,"->",SPANarrow)++
-	 string_edge(Free,Free+1),
-	 Free+2,Free+1};
+	Str = 
+		string_vertex(Free,atom_to_list(Executed) ++ string_channels(Channels)
+		++ RenamingInfo,SPANevent) ++ string_vertex(Free+1,"->",SPANarrow) 
+		++ string_edge(Free,Free+1),
+	case  atom_to_list(Executed) of 
+		% ?SLICE -> 
+		"sdasd" ->
+			{" ", Free,Free};
+		_ -> 
+			{Str, Free+2,Free+1}
+	end;
 create_graph({'|~|',_,_,SPAN},Free) ->
 	{string_vertex(Free,"|~|",SPAN),Free+1,Free};
 create_graph({'[]',_,_,SPAN},Free) ->
@@ -297,6 +312,7 @@ create_graph({'\\',_,{closure,Events},SPAN},Free) ->
 create_graph({';',NodesFinished,SPAN},Free) ->
 	{lists:append([string_edge(Node,Free) || Node <- NodesFinished]) ++ 
 	 string_vertex(Free,";",SPAN),Free+1,Free}.
+
 
 string_vertex(Id,Label,SPAN) ->
 	digraph!{add, vertex, Id, {Label, SPAN}},

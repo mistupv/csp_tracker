@@ -2,7 +2,7 @@
 %IDEA 2: Enrecordarme de no dibuixar el external choice o el parallelisme fins que el fills no executen algo. Aço es pot fer dins del paralleislme mateixa, la primera volta que es reba algo
 -module(csp_process).
 
--export([first/3,loop/5,loop_root/1]).
+-export([first/3,loop/5,loop_root/1, send_message2regprocess/2]).
 
 first(FirstProcess,Timeout,NoOutput) -> 
 	print_message("\n-> START_TRACE\n\n",NoOutput),
@@ -26,7 +26,6 @@ first(FirstProcess,Timeout,NoOutput) ->
 				{{{0,0,0,now()},"",""},{[],[]}}
 		end,
 	send_message2regprocess(printer,stop),
-	send_message2regprocess(codeserver,stop),
 	InfoGraph.
 
 print_message(Msg,NoOutput) ->

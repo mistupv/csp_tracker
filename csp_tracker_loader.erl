@@ -8,7 +8,9 @@ compile() ->
   comp_aux( 'src/csp_parsing.erl'),
   comp_aux( 'src/csp_tracker.erl'),
   comp_aux( 'src/csp_bench.erl'),
-  comp_aux( 'src/csp_slicer.erl').
+  comp_aux( 'src/csp_slicer.erl'),
+  comp_aux( 'src/csp_slicer_output.erl'),
+  ok.
 
 load() ->
   code:load_abs("ebin/codeserver"),
@@ -18,6 +20,7 @@ load() ->
   code:load_abs("ebin/csp_tracker"),
   code:load_abs("ebin/csp_bench"),
   code:load_abs("ebin/csp_slicer"),
+  code:load_abs("ebin/csp_slicer_output"),
   ok.
 
 comp_aux( File ) ->

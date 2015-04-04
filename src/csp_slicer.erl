@@ -2,9 +2,7 @@
 
 -export([get_total_slices/1, get_slices/2]).
 
--define(SLICE, "slice").
--define(SLICE_START, "slice_start").
--define(SLICE_END, "slice_end").
+-include("csp_tracker.hrl").
 
 get_total_slices(G) ->
 	length(get_all_slices(G)).

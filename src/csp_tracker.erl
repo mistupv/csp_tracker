@@ -8,6 +8,8 @@
 -export([track/1, track/2, track/3, track_web/3, track_web_slice/1]).
 
 
+-include("csp_tracker.hrl").
+
 track(File) -> track(File,'MAIN', [all,infinity]).
 
 track(File,FirstProcess) -> track(File,FirstProcess,[all,infinity]).
@@ -19,8 +21,13 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 					get_answer(
 						"\nWhich execution are you interested? ",
 						lists:seq(1, TotalSlice) ),
-				slice_from(Digraph,Answer);
-			(_,_) -> ok
+				Slice = get_slices_from_digraph(Digraph, Answer),
+				slice_from(Digraph, Slice),
+				% {ResGap, ResExec} = slice_output(Slice, FirstProcess, Digraph),
+				% io:format("~s\n~s\n", [ResGap, ResExec]),
+				ok;
+			(_, _) -> 
+				ok
 		end,
 	track_common(File, FirstProcess,Options, FunAnswer);
 track(_,_,_) -> io:format("Not valids arguments.\n").
@@ -31,7 +38,8 @@ track_web(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 track_web_slice(Ex) ->
 	{ok,[NodesDigraph, EdgesDigraph]} = file:consult("track.txt"),
 	Digraph = build_digraph(NodesDigraph, EdgesDigraph),
-	slice_from(Digraph,Ex),
+	Slice = get_slices_from_digraph(Digraph, Ex),
+	slice_from(Digraph, Slice),
 	ok.
 
 
@@ -99,13 +107,16 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					end,					
 					%io:format("Timout: ~p\n",[Timeout]),
 					TimeBeforeExecuting = now(),
-					{{{N,E,S,TimeAfterExecuting},G,Trace}, DigraphContent} = csp_process:first(FirstProcess,Timeout,NoOutput),
+					{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent} = csp_process:first(FirstProcess,Timeout,NoOutput),
+					{NodesDigraph, EdgesDigraph} = DigraphContent,
+					Digraph = build_digraph(NodesDigraph, EdgesDigraph),
 					%TimeAfterExecuting = now(),
 					case Timeout of
 						infinity -> 
 							ok;
 						_ -> 
-							printer:add_to_file(G,NoOutput),
+							% printer:add_to_file(G,NoOutput),
+							print_from_digraph(Digraph, "track", []),
 							case NoOutput of 
 								false ->
 									io:format("\n************Trace*************\n\n~s\n******************************\n",[Trace]);
@@ -115,8 +126,6 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					end,
 					TimeExecuting = timer:now_diff(TimeAfterExecuting, TimeBeforeExecuting),
 					SizeFile = filelib:file_size("track.dot"), 
-					{NodesDigraph, EdgesDigraph} = DigraphContent,
-					Digraph = build_digraph(NodesDigraph, EdgesDigraph),
 					% io:format("~p.\n~p.\n", [
 					% 	[digraph:vertex(Digraph, V)  || V <- digraph:vertices(Digraph)], 
 					% 	[digraph:edge(Digraph, E)  || E <- digraph:edges(Digraph)]]),
@@ -142,24 +151,35 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 								{{N,E,S},TimeConversion,TimeExecuting,TimeConversion + TimeExecuting,SizeFile}
 						end,
 					io:format("\n******************************\n"),
-					TotalSlice = csp_slicer:get_total_slices(Digraph),
+					DigraphComplete = build_digraph(NodesDigraph, EdgesDigraph),
+					TotalSlice = csp_slicer:get_total_slices(DigraphComplete),
 					case TotalSlice of 
 						0 ->
 							io:format("Slice not executed.\n");
 						_ ->
 							io:format("The slicing criterion was executed " 
 								++ integer_to_list(TotalSlice) ++ " times.\n"),
-							FunAnswer(Digraph, TotalSlice)
+							FunAnswer(DigraphComplete, TotalSlice)
 					end,
 					io:format("******************************\n"),
+					csp_process:send_message2regprocess(codeserver,stop),
 					Result
 			end
 	end.
 
-slice_from(Digraph,Answer) ->
+get_slices_from_digraph(Digraph, Ex) ->
 	TimeBeforeExecuting = now(),
-	Slice = csp_slicer:get_slices(Digraph, Answer),
+	Slice = csp_slicer:get_slices(Digraph, Ex),
 	TimeExecuting = timer:now_diff(now(), TimeBeforeExecuting),
+	io:format("\nTotal of time generating slice:\t~p ms\n",[TimeExecuting/1000]),
+	Slice.
+
+slice_from(Digraph, Slice) ->
+	print_from_digraph(Digraph, "track_slice", Slice).
+	
+
+print_from_digraph(Digraph, NameFile, Slice) ->
+	remove_slice_nodes(Digraph),
 	NodesSlice = 
 		lists:flatten([
 			begin 
@@ -172,10 +192,40 @@ slice_from(Digraph,Answer) ->
 				{_, V1, V2, Type} = digraph:edge(Digraph, ED),
 				printer:string_edge_dot(V1, V2, Type)
 			end || ED <- digraph:edges(Digraph)]),
-	file:write_file("track_slice.dot", 
-		list_to_binary("digraph csp_track_slice {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
-	os:cmd("dot -Tpdf track_slice.dot > track_slice.pdf"),
-	io:format("Slice generated.\nTotal of time:\t~p ms\n",[TimeExecuting/1000]).
+	file:write_file(NameFile ++ ".dot", 
+		list_to_binary("digraph " ++ NameFile ++ " {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
+	os:cmd("dot -Tpdf " ++ NameFile ++ ".dot > " ++ NameFile ++ ".pdf").
+
+slice_output(Slice, FirstProcess, G) ->
+	TimeBeforeExecuting = now(),
+	Output = csp_slicer_output:create_slicer_output(Slice, FirstProcess, G),
+	TimeExecuting = timer:now_diff(now(), TimeBeforeExecuting),
+	io:format("Total of time creating output:\t~p ms\n",[TimeExecuting/1000]),
+	Output.
+
+remove_slice_nodes(Digraph) ->
+	[begin 
+		case digraph:vertex(Digraph, VD) of 
+			false -> 
+				ok;
+			{Id, {Label, _}} -> 
+				case Label of 
+					?SLICE -> 
+						OsArrow = digraph:out_edges(Digraph, Id),
+						[{_EArrow,_,VArrow,_}] = [ digraph:edge(Digraph, O) || O <- OsArrow ],
+						Es = digraph:in_edges(Digraph, Id),
+						InfoEs = [ digraph:edge(Digraph, E) || E <- Es ],
+						Os = digraph:out_edges(Digraph, VArrow),
+						InfoOs = [ digraph:edge(Digraph, O) || O <- Os ],
+						[[ digraph:add_edge(Digraph, V1, V2, "control") || {_,_,V2,_} <- InfoOs] 
+							|| {_,V1,_,_} <- InfoEs],
+						digraph:del_vertex(Digraph, Id),
+						digraph:del_vertex(Digraph, VArrow);
+					_ -> 
+						ok
+				end
+		end
+	end || VD <- digraph:vertices(Digraph)].
 
 build_digraph(NodesDigraph, EdgesDigraph) ->
 	Digraph = digraph:new(),
