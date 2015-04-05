@@ -23,8 +23,17 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 						lists:seq(1, TotalSlice) ),
 				Slice = get_slices_from_digraph(Digraph, Answer),
 				slice_from(Digraph, Slice),
-				% {ResGap, ResExec} = slice_output(Slice, FirstProcess, Digraph),
-				% io:format("~s\n~s\n", [ResGap, ResExec]),
+				Lines = read_lines_file(File),
+				% io:format("~p\n", [Lines]),
+				remove_slice_nodes(Digraph),
+				{ResGap, ResExec} = slice_output(Slice, FirstProcess, Digraph, Lines),
+				io:format("\n********* Gaps Slice **********\n"),
+				io:format("~s\n", [ResGap]),
+				io:format("\n*******************************\n"),
+				io:format("\n******* Executable Slice ******\n"),
+				io:format("~s\n", [ResExec]),
+				io:format("\n*******************************\n"),
+				% io:format("~p\n", [Lines]),
 				ok;
 			(_, _) -> 
 				ok
@@ -63,6 +72,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 			io:format("Correct the syntax error before to proceed\n"),
 			ok;
 		{ok,ProcessList} ->
+			% io:format("~p\n", [ProcessList]),
 			case hd(ProcessList) of
 			     [] -> 
 			     	io:format("Correct the syntax error before to proceed\n"),
@@ -78,7 +88,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					% io:format("~p\n",[ChannelInfo]),
 					insert_processes(ChannelInfo,Processes),
 			%		io:format("Processes: ~p\n",
-			%		          [[ PN || {PN,_} <- ets:tab2list(Processes)]--
+			%		          [[ PN || {PN,_} <- ets:tab2list(Processes)]--
 			%		           [ PN || {PN,_} <- ets:tab2list(Processes),
 			%		                   csp_parsing:fake_process_name(atom_to_list(PN))]]),
 					case lists:member(codeserver,registered()) of
@@ -119,7 +129,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 							print_from_digraph(Digraph, "track", []),
 							case NoOutput of 
 								false ->
-									io:format("\n************Trace*************\n\n~s\n******************************\n",[Trace]);
+									io:format("\n*********** Trace ************\n\n~s\n******************************\n",[Trace]);
 								true ->
 									ok 
 							end
@@ -136,7 +146,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					Result = 
 						case NoOutput of 
 							false ->
-								io:format("\n******************************\n"),
+								io:format("\n********** Results ************\n"),
 								io:format("Total of time converting:\t~p ms\n",[TimeConversion/1000]),
 								io:format("Total of time executing:\t~p ms\n",[TimeExecuting/1000]),
 								io:format("Total of time:\t~p ms\n",[(TimeExecuting + TimeConversion)/1000]),
@@ -150,18 +160,18 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 							true ->
 								{{N,E,S},TimeConversion,TimeExecuting,TimeConversion + TimeExecuting,SizeFile}
 						end,
-					io:format("\n******************************\n"),
+					io:format("\n*********** Slice ************\n"),
 					DigraphComplete = build_digraph(NodesDigraph, EdgesDigraph),
 					TotalSlice = csp_slicer:get_total_slices(DigraphComplete),
 					case TotalSlice of 
 						0 ->
-							io:format("Slice not executed.\n");
+							io:format("Slicing criterion not executed.\n");
 						_ ->
 							io:format("The slicing criterion was executed " 
 								++ integer_to_list(TotalSlice) ++ " times.\n"),
 							FunAnswer(DigraphComplete, TotalSlice)
 					end,
-					io:format("******************************\n"),
+					io:format("*******************************\n"),
 					csp_process:send_message2regprocess(codeserver,stop),
 					Result
 			end
@@ -196,9 +206,9 @@ print_from_digraph(Digraph, NameFile, Slice) ->
 		list_to_binary("digraph " ++ NameFile ++ " {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
 	os:cmd("dot -Tpdf " ++ NameFile ++ ".dot > " ++ NameFile ++ ".pdf").
 
-slice_output(Slice, FirstProcess, G) ->
+slice_output(Slice, FirstProcess, G, Lines) ->
 	TimeBeforeExecuting = now(),
-	Output = csp_slicer_output:create_slicer_output(Slice, FirstProcess, G),
+	Output = csp_slicer_output:create_slicer_output(Slice, FirstProcess, G, Lines),
 	TimeExecuting = timer:now_diff(now(), TimeBeforeExecuting),
 	io:format("Total of time creating output:\t~p ms\n",[TimeExecuting/1000]),
 	Output.
@@ -237,12 +247,12 @@ build_digraph(NodesDigraph, EdgesDigraph) ->
 
 insert_processes([{}],_) ->
 	ok;
-insert_processes([{ProcessName0,ProcessBody,_}|Tail],Processes) ->
+insert_processes([{ProcessName0, ProcessBody, SPAN}|Tail],Processes) ->
 	%NProcessBody = csp_parsing:replace_fake_processes(ProcessBody,Processes),
 	{ProcessName,Parameters} = 
 		csp_parsing:search_parameters(atom_to_list(ProcessName0),[]),
 	%io:format("Name: ~p  Parameters: ~p\n",[ProcessName,Parameters]),
-	ets:insert(Processes,{ProcessName,{Parameters,ProcessBody}}),
+	ets:insert(Processes,{ProcessName,{{Parameters,ProcessBody},SPAN}}),
 	insert_processes(Tail,Processes);
 insert_processes([{Channel,Type}|Tail],Processes) ->
 	ets:insert(Processes,{list_to_atom(Channel),Type}),
@@ -290,7 +300,7 @@ read_file(IODevice) ->
 read_file(IODevice,Acc) ->
 	case io:request(IODevice, {get_line, ''}) of
 	     eof -> Acc;
-	     Data -> read_file(IODevice,Acc++Data)
+	     Data -> read_file(IODevice, Acc ++ Data)
 	end.
 	
 read_channels_info() ->
@@ -323,6 +333,26 @@ get_answer(Message,Answers) ->
 	catch 
 		_:_ -> get_answer(Message,Answers)
 	end.
+
+% read_lines_file(IODevice) -> 
+% 	read_lines_file(IODevice, 1, []).
+	
+% read_lines_file(IODevice, Line, Acc) ->
+% 	case io:request(IODevice, {get_line, ''}) of
+% 	     eof -> 
+% 	     	Acc;
+% 	     Data -> 
+% 	     	read_lines_file(IODevice, Line + 1, Acc ++ [{Line,Data}])
+% 	end.
+	
+read_lines_file( File ) ->
+        {ok, IO} = file:open( File, [read] ),
+        read_lines_file( io:get_line(IO, ''), IO, 1, [] ).
+ 
+ 
+read_lines_file( eof, _IO, _Num, Acc ) -> lists:reverse( Acc );
+read_lines_file( {error, _Error}, _IO, _Num, Acc ) -> lists:reverse( Acc );
+read_lines_file( Line, IO, Num, Acc ) -> read_lines_file( io:get_line(IO, ''), IO, Num + 1, [{Num,Line} | Acc] ).
 
 
 %Prova per veure que pasa quant varios processos intenten matar-se mutuament.	

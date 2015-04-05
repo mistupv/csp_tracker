@@ -240,13 +240,13 @@ create_graph({prefix,SPANevent,Channels,Event,_,SPANarrow},Free) ->
 	Str = 
 		string_vertex(Free, atom_to_list(Event) ++ string_channels(Channels),SPANevent) 
 	 	++ string_vertex(Free+1,"->",SPANarrow) ++ string_edge(Free,Free+1),
-	case  atom_to_list(Event) of 
-		% ?SLICE -> 
-		"sdasd" ->
-			{" ", Free,Free};
-		_ -> 
-			{Str, Free+2,Free+1}
-	end;
+	% case  atom_to_list(Event) of 
+	% 	% ?SLICE -> 
+	% 	"sdasd" ->
+	% 		{" ", Free,Free};
+	% 	_ -> 
+			{Str, Free+2,Free+1};
+	% end;
 create_graph({renamed_event,Executed,{prefix,SPANevent,Channels,Event,_,SPANarrow}},Free) ->
 	RenamingInfo = 
 		case Executed of 
@@ -259,13 +259,13 @@ create_graph({renamed_event,Executed,{prefix,SPANevent,Channels,Event,_,SPANarro
 		string_vertex(Free,atom_to_list(Executed) ++ string_channels(Channels)
 		++ RenamingInfo,SPANevent) ++ string_vertex(Free+1,"->",SPANarrow) 
 		++ string_edge(Free,Free+1),
-	case  atom_to_list(Executed) of 
-		% ?SLICE -> 
-		"sdasd" ->
-			{" ", Free,Free};
-		_ -> 
-			{Str, Free+2,Free+1}
-	end;
+	% case  atom_to_list(Executed) of 
+	% 	% ?SLICE -> 
+	% 	"sdasd" ->
+	% 		{" ", Free,Free};
+	% 	_ -> 
+			{Str, Free+2,Free+1};
+	% end;
 create_graph({'|~|',_,_,SPAN},Free) ->
 	{string_vertex(Free,"|~|",SPAN),Free+1,Free};
 create_graph({'[]',_,_,SPAN},Free) ->

@@ -9,8 +9,15 @@ loop(Processes) ->
 		{ask_code,Process,Arguments,Pid} -> 
 			AllProcesses =  ets:lookup(Processes, Process),
 			%io:format("~p\n",[AllProcesses]),
-			PBody = get_body(Process,Arguments,AllProcesses),
+			% io:format("~p\n",[get_body(Process,Arguments,AllProcesses)]),
+			{PBody, _SPAN} = get_body(Process,Arguments,AllProcesses),
 			Pid!{code_reply,PBody},
+			loop(Processes);
+		{ask_span,Process,Arguments,Pid} -> 
+			AllProcesses =  ets:lookup(Processes, Process),
+			%io:format("~p\n",[AllProcesses]),
+			{_PBody, SPAN} = get_body(Process,Arguments,AllProcesses),
+			Pid!{code_reply,SPAN},
 			loop(Processes);
 		{ask_channel,Channel,Pid} -> 
 			{Channel,Types} =  hd(ets:lookup(Processes, Channel)),
@@ -23,10 +30,10 @@ loop(Processes) ->
 			ok
 	end.
 
-get_body(Process,Arguments,[{Process,{Parameters,PBody}}|Tail]) ->
+get_body(Process,Arguments,[{Process,{{Parameters,PBody}, SPAN}}|Tail]) ->
 	case csp_parsing:matching(Parameters,Arguments) of
 	     true ->
-	     	csp_parsing:replace_parameters(PBody,lists:zip(Parameters,Arguments));
+	     	{csp_parsing:replace_parameters(PBody,lists:zip(Parameters,Arguments)), SPAN};
 	     	% Result = csp_parsing:replace_parameters(PBody,lists:zip(Parameters,Arguments)),
 	     	% io:format("Body: ~p\n",[Result]),
 	     	% io:format("ParArgs: ~p\n",[lists:zip(Parameters,Arguments)]),
@@ -38,6 +45,8 @@ get_body(Process,Arguments,[_|Tail]) ->
 	get_body(Process,Arguments,Tail);
 get_body(_,_,[]) ->
 	%Açi deuria mostrar un error i parar
-	{stop,{src_span,0,0,0,0,0,0}}.
+	{{stop,{src_span,0,0,0,0,0,0}}, {src_span,0,0,0,0,0,0}}.
+
+
 
 
