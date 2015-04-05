@@ -1,0 +1,58 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Traffic.csp
+--
+-- AUTHORS:              Javier Oliver
+-- DATE:                 September 2009          
+-- PUBLISHED:     
+-- DESCRIPTION
+-- This specification defines one car driving on two streets. 
+-- The car can circulate in two streets. 
+-- Each street has one traffic light for cars controlling. 
+-- SLICE
+-- The slice is placed after process CAR is driving on STREET2.
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------
+-- SOURCE CODE
+-----------------------------------------------------------------------------------------
+channel red1, orange1, green1
+channel red2,orange2,green2
+channel stopred1,stopred2
+channel drive1,park
+channel slice
+
+MAIN = ((LIGHT1 ||| LIGHT2) [|{|red1,orange1,green1,red2,orange2,green2|}|] CAR1) 
+
+LIGHT1 = orange1 -> red1 -> green1 -> LIGHT1
+
+LIGHT2 = orange2 -> red2 -> green2-> LIGHT2
+
+CAR1 = drive1 -> (STREET1 [] slice -> STREET2)
+
+STREET1 =  (red1 -> stopred1 -> STREET1)
+	       []
+           ((orange1 -> drive1 -> ((red1 -> stopred1 -> STREET1)
+					               []
+                                   (drive1 -> ((park -> STOP) [] STREET1))))	      
+		   []
+            (green1 -> drive1 -> ((orange1 -> drive1 ->((red1 -> stopred1 -> STREET1)
+			      				  []
+                                  (drive1 -> ((park -> STOP) [] STREET1))))     
+		                          []
+                                  (drive1 -> ((park -> STOP) [] STREET1))))
+           )
+           
+STREET2 =  (red2 -> stopred2 -> STREET2)
+	       []
+           ((orange2 -> drive1 -> ((red2 -> stopred2 -> STREET2)
+					              []
+                                  (drive1 -> ((park -> STOP) [] STREET2))))	      
+		   []
+            (green2 -> drive1 -> ((orange2 -> drive1 ->((red2 -> stopred2 -> STREET2)
+			      				  []
+                                  (drive1 -> ((park -> STOP) [] STREET2))))     
+		                          []
+                                  (drive1 -> ((park -> STOP) [] STREET2))))
+           )
