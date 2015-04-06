@@ -10,8 +10,9 @@
 --              CTIT Ph.D.-thesis series No. 06-82, pp. 55-56, 2006.
 -- DESCRIPTION
 -- This example describes a producer-consumer system. 
+--
 -- SLICE
--- The slice is placed after process Consumer12 has been executed. 
+-- The slicing criterion is placed after process Consumer12 has been executed. 
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 
