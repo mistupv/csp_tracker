@@ -15,7 +15,7 @@ create_slicer_output(Slice, FirstProcess, G, Lines) ->
 
 create_out_process([{LhsStr0, Node} | Tail], G, Slice, Lines, Filler, Done) -> 
 	[Next] = digraph:out_neighbours(G, Node),
-	{_, {_, SPAN}} = digraph:vertex(G, Next),
+	{_,{_,SPAN}} = digraph:vertex(G,Next),
 	case lists:member(SPAN, Done) of 
 		false -> 
 			SameSPAN = search_nodes_same_process(SPAN, G),
@@ -178,7 +178,7 @@ search_nodes_same_process(SPAN, G) ->
 		end || VD <- digraph:vertices(G)]).
 
 read_from_file_content({src_span,N,Ini,NFin,Fin,_,_}, Lines, other) ->
-	[LineN] = [Line || {NL, Line} <- Lines, NL == N],
+	[LineN] = [Line ||{NL, Line} <- Lines, NL == N],
 	Top =
 		case NFin of 
 			N -> 
@@ -188,10 +188,10 @@ read_from_file_content({src_span,N,Ini,NFin,Fin,_,_}, Lines, other) ->
 		end,
 	lists:sublist(LineN, Ini, Top);
 read_from_file_content({src_span,N,Ini,_NFin,_Fin,_,_}, Lines, prefix) ->
-	[LineN] = [Line || {NL, Line} <- Lines, NL == N],
+	[LineN] = [Line ||{NL, Line} <- Lines, NL == N],
 	lists:takewhile(fun(Char) -> Char =/= $  end, lists:sublist(LineN, Ini, length(LineN)));
 read_from_file_content({src_span,N,Ini,NFin,Fin0,_,_}, Lines, call) ->
-	[LineN] = [Line || {NL, Line} <- Lines, NL == N],
+	[LineN] = [Line ||{NL, Line} <- Lines, NL == N],
 	% io:format("~p\n~p\n~p\n",[SPAN, N, Lines]),
 	{Top, Fin} =
 		case NFin of 
@@ -216,7 +216,7 @@ read_from_file_content({src_span,N,Ini,NFin,Fin0,_,_}, Lines, call) ->
 find_lhs_from(_, 0) ->
 	"";
 find_lhs_from(Lines, N) ->
-	[LineN] = [Line || {NL, Line} <- Lines, NL == N],
+	[LineN] = [Line ||{NL, Line} <- Lines, NL == N],
 	% io:format("~s\n", [LineN]),
 	case lists:takewhile(fun(Char) -> Char =/= $= end, LineN) of 
 		LineN ->

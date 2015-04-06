@@ -23,16 +23,7 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 						lists:seq(1, TotalSlice) ),
 				Slice = get_slices_from_digraph(Digraph, Answer),
 				slice_from(Digraph, Slice),
-				Lines = read_lines_file(File),
-				% io:format("~p\n", [Lines]),
-				remove_slice_nodes(Digraph),
-				{ResGap, ResExec} = slice_output(Slice, FirstProcess, Digraph, Lines),
-				io:format("\n********* Gaps Slice **********\n"),
-				io:format("~s\n", [ResGap]),
-				io:format("\n*******************************\n"),
-				io:format("\n******* Executable Slice ******\n"),
-				io:format("~s\n", [ResExec]),
-				io:format("\n*******************************\n"),
+				get_slice_code(Digraph, Slice, FirstProcess, File),
 				% io:format("~p\n", [Lines]),
 				ok;
 			(_, _) -> 
@@ -45,10 +36,20 @@ track_web(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 	track_common(File, FirstProcess,Options, fun(_, _) -> ok end).
 
 track_web_slice(Ex) ->
+	File = 'csp_tracker_temp.csp',
+	% File = 'ex1.csp',
 	{ok,[NodesDigraph, EdgesDigraph]} = file:consult("track.txt"),
 	Digraph = build_digraph(NodesDigraph, EdgesDigraph),
 	Slice = get_slices_from_digraph(Digraph, Ex),
 	slice_from(Digraph, Slice),
+	 FirstProcess = 
+ 	   case file:consult("first_process.txt") of
+ 	   	{ok,[FirstProcess_]} -> 
+ 	   		FirstProcess_;
+ 	   	_ -> 
+ 	   		'MAIN'
+ 	   end,
+	get_slice_code(Digraph, Slice, FirstProcess, File),
 	ok.
 
 
@@ -176,6 +177,17 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					Result
 			end
 	end.
+
+get_slice_code(Digraph, Slice, FirstProcess, File) ->
+	remove_slice_nodes(Digraph),
+	Lines = read_lines_file(File),
+	{ResGap, ResExec} = slice_output(Slice, FirstProcess, Digraph, Lines),
+	io:format("\n********* Gaps Slice **********\n\n"),
+	io:format("~s\n", [ResGap]),
+	io:format("*******************************\n"),
+	io:format("\n******* Executable Slice ******\n\n"),
+	io:format("~s\n", [ResExec]),
+	io:format("*******************************\n").
 
 get_slices_from_digraph(Digraph, Ex) ->
 	TimeBeforeExecuting = now(),
