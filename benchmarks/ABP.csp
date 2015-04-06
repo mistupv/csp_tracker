@@ -33,9 +33,9 @@ channel c,d:{0,1}    --TAG
 -- channels.
 -- Here are channels that can do this arbitrarily
 
-C(ic,oc) = ic?x -> C(ic,oc) |~| ic?x -> C1(ic,oc,x)
+C(ic,oc) = (ic?x -> C(ic,oc)) |~|  (ic?x -> C1(ic,oc,x))
 
-C1(ic,oc,x) = oc!x -> C(ic,oc) |~| oc!x -> C1(ic,oc,x)
+C1(ic,oc,x) = (oc!x -> C(ic,oc)) |~| (oc!x -> C1(ic,oc,x))
 
 -- We specify here channels which must transmit one out of any L=3 values, but 
 -- any definition would work provided it maintains order and does not lose
