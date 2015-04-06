@@ -43,10 +43,10 @@ C1(ic,oc,x) = oc!x -> C(ic,oc) |~| oc!x -> C1(ic,oc,x)
 -- in the size of the state-space!
 
 BE(ic,oc,n) = if (n==0) then (ic?tag?data -> oc!tag!data -> BE(ic,oc,3-1))
-                       else ((ic?tag?data ->  oc!tag!data -> BE(ic,oc,3-1)) |~|  BE(ic,oc,n-1))
+                       else ((ic?tag?data -> oc!tag!data -> BE(ic,oc,3-1)) |~| (ic?tag?data -> BE(ic,oc,n-1)))
 
 BE1(ic,oc,n) = if (n==0) then (ic?tag -> oc!tag -> BE1(ic,oc,3-1))
-                       else ((ic?tag -> oc!tag -> BE1(ic,oc,3-1)) |~|  BE1(ic,oc,n-1))
+                       else ((ic?tag -> oc!tag -> BE1(ic,oc,3-1)) |~| (ic?tag -> BE1(ic,oc,n-1)))
 
 
 -- Increasing L makes this definition less deterministic.  
