@@ -27,26 +27,26 @@
 
 channel left,right:{0,1} --DATA
 channel a,b:{0,1}.{0,1}  --TAG.DATA
-channel c,d:{0,1}		 --TAG
+channel c,d:{0,1}    --TAG
 
 -- The protocol is designed to work in the presence of lossy and duplicating
 -- channels.
 -- Here are channels that can do this arbitrarily
 
-C(ic,oc) = ic?x -> (C(ic,oc) |~| C1(ic,oc,x))
+C(ic,oc) = ic?x -> C(ic,oc) |~| ic?x -> C1(ic,oc,x)
 
-C1(ic,oc,x) = oc!x -> (C(ic,oc) |~| C1(ic,oc,x))
+C1(ic,oc,x) = oc!x -> C(ic,oc) |~| oc!x -> C1(ic,oc,x)
 
 -- We specify here channels which must transmit one out of any L=3 values, but 
 -- any definition would work provided it maintains order and does not lose
 -- an infinite sequence of values.  The only difference would evidence itself
 -- in the size of the state-space!
 
-BE(ic,oc,n) = ic?tag?data -> (if (n==0) then (oc!tag!data -> BE(ic,oc,3-1))
-                       else ((oc!tag!data -> BE(ic,oc,3-1)) |~|  BE(ic,oc,n-1)))
+BE(ic,oc,n) = if (n==0) then (ic?tag?data -> oc!tag!data -> BE(ic,oc,3-1))
+                       else ((ic?tag?data ->  oc!tag!data -> BE(ic,oc,3-1)) |~|  BE(ic,oc,n-1))
 
-BE1(ic,oc,n) = ic?tag -> (if (n==0) then (oc!tag -> BE1(ic,oc,3-1))
-                       else ((oc!tag -> BE1(ic,oc,3-1)) |~|  BE1(ic,oc,n-1)))
+BE1(ic,oc,n) = if (n==0) then (ic?tag -> oc!tag -> BE1(ic,oc,3-1))
+                       else ((ic?tag -> oc!tag -> BE1(ic,oc,3-1)) |~|  BE1(ic,oc,n-1))
 
 
 -- Increasing L makes this definition less deterministic.  
