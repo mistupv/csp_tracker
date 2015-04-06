@@ -20,8 +20,9 @@
 --      cooking when the user has placed food in the oven.
 -- R7.  If the oven times-out, the light and the power-tube are turned off and then a  
 --      beeper emits a sound to indicate that the cooking is finished.
+--
 -- SLICE
--- The slice is placed when the single control button is pushed and the door is closed.
+-- The slicing criterion is placed when the single control button is pushed and the door is closed.
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 
