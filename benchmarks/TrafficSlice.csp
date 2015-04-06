@@ -9,8 +9,9 @@
 -- This specification defines one car driving on two streets. 
 -- The car can circulate in two streets. 
 -- Each street has one traffic light for cars controlling. 
+--
 -- SLICE
--- The slice is placed after process CAR is driving on STREET2.
+-- The slicing criterion is placed after process CAR is driving on STREET2.
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 
