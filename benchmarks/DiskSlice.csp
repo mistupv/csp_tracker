@@ -22,7 +22,8 @@
 -- and hiding. C(1) and C(2) are the two simulated disk client processes.
 --
 -- SLICE
--- The slice is placed after sending acknowledgement on DS_busy.
+-- The slicing criterion is placed after sending acknowledgement on DS_busy to extract
+-- the program fragment needed when a request is completed.
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 
