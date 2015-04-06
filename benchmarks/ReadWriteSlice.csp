@@ -14,8 +14,9 @@
 -- act of writing to it. In particular, it is allowed for two readers to access the share 
 -- at the same time. In this model, a controller is used to guarantee the correct coordination 
 -- among multiple readers/writers.
+--
 -- SLICE 
--- The slice is placed when process Writers(2) is writing.
+-- The slicing criterion is placed when process Writers(2) is writing.
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 
