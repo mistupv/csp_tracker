@@ -1,0 +1,114 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Disk.csp
+--
+-- AUTHORS:     W. B. Gardner
+-- DATE:        June 2003
+-- PUBLISHED:   Bridging CSP and C++ with Selective Formalism and Executable 
+--				Specifications. 1st ACM & IEEE International Conference on 
+--              Formal Methods and Models for Co-Design (MEMOCODE 2003)
+--              IEEE Computer Society, 2003
+--              http://www.uoguelph.ca/~gardnerw/csp++/          
+-- DESCRIPTION
+-- This example describes a simulated disk server with simulated disk and
+-- simulated clients. The disk server DSS is defined as a composition of two pairs of 
+-- processes: the scheduler and request queue, which are synchronized on queue events, 
+-- and the controller and (simulated) disk, synchronized on controller signals (channels 
+-- dio and dint). The scheduler, DSched, communicates with the controller via channels 
+-- dci and dco. DSched is specified as a state machine, cycling through the states idle, 
+-- busy, and check, responding to requests on channel ds and sending acknowledgements. 
+-- The request queue, DQueue, uses a process, DQ(i), to keep track of the number of 
+-- requests queued, and a two-cell buffer. The BUFF process demonstrates event renaming 
+-- and hiding. C(1) and C(2) are the two simulated disk client processes.
+--
+-- SLICE
+-- The slice is placed after sending acknowledgement on DS_busy.
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------
+-- SOURCE CODE (adapted version)  
+-----------------------------------------------------------------------------------------
+channel dio: {0..3}
+channel ack: {1..2}
+channel shift, deq, empt, moreone, moretwo, dint
+channel ds, dco, dci, enq, next, left, right, comm: {1..2}.{0..3}
+
+--============================
+-- DQueue:  disk request queue
+--
+-- Interface:
+--	enq!<item>	enqueue item
+--	deq		dequeue item, followed by:
+--	  next?x	  next item returned, or
+--	  empt		  empty queue indication
+--============================
+CELL = left?x.y -> shift -> right!x.y -> CELL
+
+BUFF = ((CELL[[right<-comm]]) [|{|comm|}|] (CELL[[left<-comm]]))\{|comm|}
+
+DQueue = (DQ(0) [|{|left, right, shift|}|] BUFF)\{|left, right, shift|}
+
+DQ(2) = deq -> shift -> X(2)
+
+DQ(i) = enq?x.y -> (left!x.y -> shift-> DQ(i+1))
+	   [] deq -> (if (i==0) then empt -> DQ(0) 
+			      else X(i))
+
+X(i) = right?y.z -> (next!y.z -> DQ(i-1))
+     [] shift -> X(i)
+
+--============================
+-- DCtrl:  disk controller
+--
+-- Interface:
+--	dci!cl.blk	staright operation on block <blk> for client <cl>
+--	dco?cl.blk	operation finished
+--============================
+DCtrl = dci?i.blk -> dio!blk -> dint -> dco!i.blk -> DCtrl
+
+--============================
+-- Disk:  disk drive (simulated)
+--
+-- Interface:
+--	dio!blk		perform disk i/o on block blk
+--	dint		disk interrupt signalled
+--============================
+Disk =  dio?blk -> dint -> Disk
+
+--============================
+-- DSched:  disk scheduler
+--
+-- Interface:
+--	ds!cl.blk	client <cl> requests operation on block <blk> 
+--	ack.cl		client's operation finished
+--============================
+DSched = DS_idle
+
+DS_idle = ds?cl.blk -> dci!cl.blk -> DS_busy
+
+DS_busy = dco?cl.blk -> (ack.cl -> slice -> DS_check)
+	    [] ds?cl.blk -> enq!cl.blk -> DS_busy
+
+DS_check = deq -> (empt -> DS_idle
+		     [] next?cl.blk -> dci!cl.blk -> DS_busy)
+			 
+--============================
+-- DSS:  disk server subsystem
+--
+-- Interface: (see DSched)
+--============================
+DSS = (DSched [|{|enq,deq,next,empt|}|] DQueue)
+	  [|{|dci,dco|}|]
+      (DCtrl [|{|dio,dint|}|] Disk)
+
+SYS = DSS [|{|ds,ack|}|] (C(1)|||C(2)) 
+
+MAIN = SYS
+
+--============================
+-- Demo
+--============================
+C(1) = ds!1.2 -> moreone -> ack.1->SKIP
+
+C(2) = ds!2.3 -> moretwo -> ack.2->SKIP
