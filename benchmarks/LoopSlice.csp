@@ -1,10 +1,21 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Loop.csp
+--
+-- AUTHORS: 	Dusko S. Jovanovic
+-- DATE:        2006           
+-- PUBLISHED:   Designing dependable process-oriented software: a CSP-based approach.
+--              Centre for Telematics and Information Technology (CTIT).
+--				University of Twente. Netherlands.
+--              CTIT Ph.D.-thesis series No. 06-82, pp. 114-117, 2006.
 -- DESCRIPTION
 -- This example describes a basic closed loop system. The loop controller manages 
 -- on basis of the setpoint reference from a sequence controller and feedback signal  
 -- from a controlled object the steering values to the controlled object.
-—- SLICE
-—- The slice is in process LoopConProcess, after the synchronization of process 
-—- SeqConProcess.
+--
+-- SLICE
+-- The slicing criterion is in process LoopConProcess, after the synchronization of process 
+-- SeqConProcess.
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 
