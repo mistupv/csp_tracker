@@ -34,6 +34,7 @@ channel dio: {0..3}
 channel ack: {1..2}
 channel shift, deq, empt, moreone, moretwo, dint
 channel ds, dco, dci, enq, next, left, right, comm: {1..2}.{0..3}
+channel slice
 
 --============================
 -- DQueue:  disk request queue
