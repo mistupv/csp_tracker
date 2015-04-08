@@ -141,7 +141,7 @@ MAIN = SYS
 	
 -- BANK: This models the bank's interface to the ATM
 -- bankstatus is status (badpin,approved,other), pin, value (return value of some kind)
-BANK = banksend?inq.c.p.account.t.f.amount -> slice -> checkdata!inq.c.p.account.t.f.amount -> reportdata?w.x.y.z -> bankstatus!w.x.y.z -> 
+BANK = banksend?inq.c.p.account.t.f.amount -> checkdata!inq.c.p.account.t.f.amount -> reportdata?w.x.y.z -> bankstatus!w.x.y.z -> 
 	if( inq == 3) then commit -> BANK 
 	else BANK
 
