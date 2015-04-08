@@ -16,7 +16,7 @@
 -- among multiple readers/writers.
 --
 -- SLICE 
--- The slicing criterion is placed when process Writers(2) is writing.
+-- The slicing criterion is placed when process Writer starts writing.
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 
@@ -26,11 +26,11 @@
 channel startwrite, stopwrite, startread, stopread, error
 channel slice
 
-Writer 	= startwrite -> stopwrite -> Writer
+Writer 	= startwrite -> slice -> stopwrite -> Writer
 
 Writers(0) = Writer
 Writers(1) = Writer
-Writers(2) = slice -> Writer
+Writers(2) = Writer
 
 Reader 	= startread -> stopread -> Reader
 
