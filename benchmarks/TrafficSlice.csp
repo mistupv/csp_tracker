@@ -28,9 +28,9 @@ MAIN = ((LIGHT1 ||| LIGHT2) [|{|red1,orange1,green1,red2,orange2,green2|}|] CAR1
 
 LIGHT1 = orange1 -> red1 -> green1 -> LIGHT1
 
-LIGHT2 = orange2 -> red2 -> green2-> LIGHT2
+LIGHT2 = orange2 -> red2 -> slice -> green2-> LIGHT2
 
-CAR1 = drive1 -> (STREET1 [] slice -> STREET2)
+CAR1 = drive1 -> (STREET1 [] STREET2)
 
 STREET1 =  (red1 -> stopred1 -> STREET1)
 	       []
