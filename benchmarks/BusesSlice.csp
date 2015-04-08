@@ -9,7 +9,7 @@
 -- This example describes a bus service with two buses running in parallel.
 --
 -- SLICE
--- The slicing criterion is placed after boarding on BUS37 to extract the fragment
+-- The slicing criterion is placed after pay90 on PASS to extract the fragment
 -- program needed until this point.
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
