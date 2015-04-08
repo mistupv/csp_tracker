@@ -11,7 +11,7 @@
 -- Each street has one traffic light for cars controlling. 
 --
 -- SLICE
--- The slicing criterion is placed after process CAR is driving on STREET2.
+-- The slicing criterion is placed after after the second traffic light (LIGHT2) turns red (red2).
 -----------------------------------------------------------------------------------------
 -----------------------------------------------------------------------------------------
 
