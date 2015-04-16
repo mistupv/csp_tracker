@@ -4,7 +4,7 @@
 
 bench(File,InitialProcees,Timeout,Iterations) ->
 	csp_tracker:track(File,InitialProcees,[Timeout,no_output]),
-	Result = bench_aux(File,InitialProcees,Timeout,Iterations,Iterations,[[],[],[],[],[],[],[]]),
+	Result = bench_aux(File,InitialProcees,Timeout,Iterations,Iterations,[[],[],[],[],[],[],[],[]]),
 	io:format("Data for arithmetic means.\n"),
 	calculate_with_mean(Result,Iterations,arithmetic),
 	io:format("Data for harmonic means.\n"),
@@ -47,22 +47,22 @@ calculate_with_mean(Result,Iterations,TypeMean) ->
 
 bench_aux(_,_,_,_,0,Acc) ->
 	Acc;
-bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,[TN,TCE,TSE,TTC,TTE,TTT,TSF]) ->
+bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]) ->
 	Result = csp_tracker:track(File,InitialProcees,[Timeout,no_output]),
 	io:format("Iteration ~p: ~p\n",[1 + TotalIterations - Iterations, Result]),
-	{{IN,ICE,ISE},ITC,ITE,ITT,ISF} = Result,
+	{{{IN,ICE,ISE},ITC,ITE,ITT,ISF},ITSLC} = Result,
 	case Result of 
-		{{0,0,0},_,_,_,_} ->
+		{{{0,0,0},_,_,_,_},_} ->
 			bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,
 				[TN,TCE,TSE,TTC,TTE,TTT,TSF]);
 		_ ->
 			case lists:member(0,[IN,ICE,ISE,ITC,ITE,ITT,ISF]) of 
 				true -> 
 					bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,
-						[TN,TCE,TSE,TTC,TTE,TTT,TSF]);
+						[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]);
 				false ->
 					bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations - 1,
-						[[IN|TN],[ICE|TCE],[ISE|TSE],[ITC|TTC],[ITE|TTE],[ITT|TTT],[ISF|TSF]])
+						[[IN|TN],[ICE|TCE],[ISE|TSE],[ITC|TTC],[ITE|TTE],[ITT|TTT],[ISF|TSF],[ITSLC|TSLC]])
 			end
 	end. 
 
@@ -74,5 +74,7 @@ printLatex(C,Means) ->
 	Times_ = getListCI(4,C,Means) ++ getListCI(5,C,Means) ++ getListCI(6,C,Means),
 	Times = [T/1000 || T <- Times_],
 	Graph = getListCI(1,C,Means) ++ getListCI(2,C,Means) ++ getListCI(3,C,Means) ++ getListCI(7,C,Means),
+	Slice = getListCI(8,C,Means),
 	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Times),
-	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Graph).
+	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Graph),
+	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	\\\\~n",Slice).

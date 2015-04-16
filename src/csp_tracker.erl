@@ -21,7 +21,8 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 					get_answer(
 						"\nWhich execution are you interested? ",
 						lists:seq(1, TotalSlice) ),
-				Slice = get_slices_from_digraph(Digraph, Answer),
+				{Slice, Time} = get_slices_from_digraph(Digraph, Answer),
+				io:format("\nTotal of time generating slice:\t~p ms\n",[Time/1000]),
 				slice_from(Digraph, Slice),
 				get_slice_code(Digraph, Slice, FirstProcess, File),
 				% io:format("~p\n", [Lines]),
@@ -40,7 +41,8 @@ track_web_slice(Ex) ->
 	% File = 'ex1.csp',
 	{ok,[NodesDigraph, EdgesDigraph]} = file:consult("track.txt"),
 	Digraph = build_digraph(NodesDigraph, EdgesDigraph),
-	Slice = get_slices_from_digraph(Digraph, Ex),
+	{Slice, Time} = get_slices_from_digraph(Digraph, Ex),
+	io:format("\nTotal of time generating slice:\t~p ms\n",[Time/1000]),
 	slice_from(Digraph, Slice),
 	 FirstProcess = 
  	   case file:consult("first_process.txt") of
@@ -144,7 +146,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 						io_lib:format("~p.\n~p.\n", [NodesDigraph, EdgesDigraph]),
 					file:write_file("track.txt", list_to_binary(TrackStr)),
 					[_,{memory,Words},_] = digraph:info(Digraph),
-					Result = 
+					Result1 = 
 						case NoOutput of 
 							false ->
 								io:format("\n********** Results ************\n"),
@@ -161,40 +163,55 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 							true ->
 								{{N,E,S},TimeConversion,TimeExecuting,TimeConversion + TimeExecuting,SizeFile}
 						end,
-					io:format("\n*********** Slice ************\n"),
 					DigraphComplete = build_digraph(NodesDigraph, EdgesDigraph),
 					TotalSlice = csp_slicer:get_total_slices(DigraphComplete),
-					case TotalSlice of 
-						0 ->
-							io:format("Slicing criterion not executed.\n");
-						_ ->
-							io:format("The slicing criterion was executed " 
-								++ integer_to_list(TotalSlice) ++ " times.\n"),
-							FunAnswer(DigraphComplete, TotalSlice)
-					end,
-					io:format("*******************************\n"),
+					Result2 = 
+						case NoOutput of 
+							false ->
+								io:format("\n*********** Slice ************\n"),
+								case TotalSlice of 
+									0 ->
+										io:format("Slicing criterion not executed.\n");
+									_ ->
+										io:format("The slicing criterion was executed " 
+											++ integer_to_list(TotalSlice) ++ " times.\n"),
+										FunAnswer(DigraphComplete, TotalSlice)
+								end,
+								io:format("*******************************\n");
+							true -> 
+								case TotalSlice of 
+									0 ->
+										0;
+									_ ->
+										{Slice, TimeCal} = get_slices_from_digraph(DigraphComplete, 1),
+										remove_slice_nodes(DigraphComplete),
+										Lines = read_lines_file(File),
+										{_, TimeGen} = slice_output(Slice, FirstProcess, DigraphComplete, Lines),
+										TimeCal + TimeGen
+								end
+						end,
 					csp_process:send_message2regprocess(codeserver,stop),
-					Result
+					{Result1, Result2}
 			end
 	end.
 
 get_slice_code(Digraph, Slice, FirstProcess, File) ->
 	remove_slice_nodes(Digraph),
 	Lines = read_lines_file(File),
-	{ResGap, ResExec} = slice_output(Slice, FirstProcess, Digraph, Lines),
+	{{ResGap, ResExec}, Time} = slice_output(Slice, FirstProcess, Digraph, Lines),
 	io:format("\n********* Gaps Slice **********\n\n"),
 	io:format("~s\n", [ResGap]),
 	io:format("*******************************\n"),
 	io:format("\n******* Executable Slice ******\n\n"),
 	io:format("~s\n", [ResExec]),
-	io:format("*******************************\n").
+	io:format("*******************************\n"),
+	io:format("Total of time creating output:\t~p ms\n",[Time/1000]).
 
 get_slices_from_digraph(Digraph, Ex) ->
 	TimeBeforeExecuting = now(),
 	Slice = csp_slicer:get_slices(Digraph, Ex),
 	TimeExecuting = timer:now_diff(now(), TimeBeforeExecuting),
-	io:format("\nTotal of time generating slice:\t~p ms\n",[TimeExecuting/1000]),
-	Slice.
+	{Slice,TimeExecuting}.
 
 slice_from(Digraph, Slice) ->
 	print_from_digraph(Digraph, "track_slice", Slice).
@@ -222,8 +239,7 @@ slice_output(Slice, FirstProcess, G, Lines) ->
 	TimeBeforeExecuting = now(),
 	Output = csp_slicer_output:create_slicer_output(Slice, FirstProcess, G, Lines),
 	TimeExecuting = timer:now_diff(now(), TimeBeforeExecuting),
-	io:format("Total of time creating output:\t~p ms\n",[TimeExecuting/1000]),
-	Output.
+	{Output, TimeExecuting}.
 
 remove_slice_nodes(Digraph) ->
 	[begin 
