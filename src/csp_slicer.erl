@@ -17,7 +17,6 @@ get_all_slices(G) ->
 						[] ->
 							[];
 						[Next|_] -> 
-							io:format("PREVIOUS: ~p\n", [digraph:vertex(G, Next)]),
 							case digraph:vertex(G, Next) of 
 								{_,{"->",_}} ->
 									Es2 = digraph:in_edges(G, Next),
@@ -26,7 +25,6 @@ get_all_slices(G) ->
 										[] ->
 											[];
 										[Next2|_] -> 
-											io:format("Estamos con: ~p\n",[Next2]),
 											Es3 = digraph:in_edges(G, Next2),
 											InfoEs3 = [ digraph:edge(G, E) || E <- Es3 ],
 											Os = digraph:out_edges(G, Next2),
@@ -43,7 +41,7 @@ get_all_slices(G) ->
 		  end || V <- digraph:vertices(G) ],
 	Result = lists:usort(lists:flatten(All)),
 	% print_from_digraph(G, "track_temp", []),
-	io:format("Slice: ~w\n",[Result]),
+	% io:format("Slice: ~w\n",[Result]),
 	Result.
 
 
