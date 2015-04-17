@@ -11,11 +11,41 @@ get_all_slices(G) ->
 	All = 
 		[ case digraph:vertex(G, V) of
 				{V, {?SLICE, _}} ->
-					[V];
+					Es = digraph:in_edges(G, V),
+					InfoEs = [ digraph:edge(G, E) || E <- Es ],
+					case [V1||{_,V1,_,"control"} <- InfoEs] of 
+						[] ->
+							[];
+						[Next|_] -> 
+							io:format("PREVIOUS: ~p\n", [digraph:vertex(G, Next)]),
+							case digraph:vertex(G, Next) of 
+								{_,{"->",_}} ->
+									Es2 = digraph:in_edges(G, Next),
+									InfoEs2 = [ digraph:edge(G, E) || E <- Es2 ],
+									case [V1||{_,V1,_,"control"} <- InfoEs2] of 
+										[] ->
+											[];
+										[Next2|_] -> 
+											io:format("Estamos con: ~p\n",[Next2]),
+											Es3 = digraph:in_edges(G, Next2),
+											InfoEs3 = [ digraph:edge(G, E) || E <- Es3 ],
+											Os = digraph:out_edges(G, Next2),
+											InfoOs = [ digraph:edge(G, E) || E <- Os ],
+											Sync = [ V1 ||{_,V1,_,"sync"} <- InfoEs3] ++ [ V2 ||{_,_,V2,"sync"} <- InfoOs],
+											[lists:min([Next2|Sync])]
+									end;
+								_ ->
+									[Next]
+							end
+					end;
 				_ -> 
 					[]
 		  end || V <- digraph:vertices(G) ],
-	lists:flatten(All).
+	Result = lists:usort(lists:flatten(All)),
+	% print_from_digraph(G, "track_temp", []),
+	io:format("Slice: ~w\n",[Result]),
+	Result.
+
 
 get_slices(G, Selected) ->
 	OrderedSlices = lists:sort(get_all_slices(G)),
@@ -47,6 +77,24 @@ calculate_slice(G, [From | Tail], Slice) ->
 	calculate_slice(G, NList, NSlice);
 calculate_slice(_G, [], Slice) ->
 	Slice.
+
+
+% print_from_digraph(Digraph, NameFile, Slice) ->
+% 	NodesSlice = 
+% 		lists:flatten([
+% 			begin 
+% 				{Id, {Label, SPAN}} = digraph:vertex(Digraph, VD),
+% 				printer:string_vertex_dot(Id, Label, SPAN, Slice)
+% 			end || VD <- digraph:vertices(Digraph)]),
+% 	EdgesSlice = 
+% 		lists:flatten([
+% 			begin 
+% 				{_, V1, V2, Type} = digraph:edge(Digraph, ED),
+% 				printer:string_edge_dot(V1, V2, Type)
+% 			end || ED <- digraph:edges(Digraph)]),
+% 	file:write_file(NameFile ++ ".dot", 
+% 		list_to_binary("digraph " ++ NameFile ++ " {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
+% 	os:cmd("dot -Tpdf " ++ NameFile ++ ".dot > " ++ NameFile ++ ".pdf").
 
 % get_slices(G) ->
 % 	Slice = calculate_slice(G, leaves(G), [], []),

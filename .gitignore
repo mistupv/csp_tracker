@@ -35,3 +35,7 @@ results/*.txt
 
 *.dump
 
+
+track_temp.dot
+
+track_temp.pdf
