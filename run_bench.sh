@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
-%%! +P 1000000 -smp enable -sname bench_suite -mnesia debug verbose -env ERL_MAX_ETS_TABLES 100000
+%%! +P 1000000 -smp enable -sname bench_suite -mnesia debug verbose
 
 
 main([String]) ->
