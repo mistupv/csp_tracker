@@ -31,6 +31,7 @@ track_slice.jpg
 
 ex2.csp
 
-results/Buses.txt
+results/*.txt
 
-results/Loop.txt
+*.dump
+
