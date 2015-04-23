@@ -129,7 +129,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 							ok;
 						_ -> 
 							% printer:add_to_file(G,NoOutput),
-							print_from_digraph(Digraph, "track", []),
+							print_from_digraph(Digraph, "track", [], NoOutput),
 							case NoOutput of 
 								false ->
 									io:format("\n*********** Trace ************\n\n~s\n******************************\n",[Trace]);
@@ -219,10 +219,10 @@ get_slices_from_digraph(Digraph, Ex) ->
 	{Slice,TimeExecuting}.
 
 slice_from(Digraph, Slice) ->
-	print_from_digraph(Digraph, "track_slice", Slice).
+	print_from_digraph(Digraph, "track_slice", Slice, false).
 	
 
-print_from_digraph(Digraph, NameFile, Slice) ->
+print_from_digraph(Digraph, NameFile, Slice, NoOutput) ->
 	remove_slice_nodes(Digraph),
 	NodesSlice = 
 		lists:flatten([
@@ -238,7 +238,12 @@ print_from_digraph(Digraph, NameFile, Slice) ->
 			end || ED <- digraph:edges(Digraph)]),
 	file:write_file(NameFile ++ ".dot", 
 		list_to_binary("digraph " ++ NameFile ++ " {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
-	os:cmd("dot -Tpdf " ++ NameFile ++ ".dot > " ++ NameFile ++ ".pdf").
+	case NoOutput of 
+		True -> 
+			ok;
+		False -> 
+			os:cmd("dot -Tpdf " ++ NameFile ++ ".dot > " ++ NameFile ++ ".pdf")
+	end.
 
 slice_output(Slice, FirstProcess, G, Lines) ->
 	TimeBeforeExecuting = now(),
