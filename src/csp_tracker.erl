@@ -73,14 +73,14 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 		{error,{_,_,InfoError}} ->
 			io:format("Error reading Erlang translation:\n~s\n",[lists:flatten(erl_parse:format_error(InfoError))]),
 			io:format("Correct the syntax error before to proceed\n"),
-			ok;
+			result_for_error();
 		{ok,ProcessList} ->
 			% io:format("~p\n", [ProcessList]),
-			case hd(ProcessList) of
-			     [] -> 
+			case ProcessList of
+			     [[]|_] -> 
 			     	io:format("Correct the syntax error before to proceed\n"),
-			     	ok;
-			     _ -> 
+			     	result_for_error();
+			     [_|_] -> 
 					file:write_file("track.dot", list_to_binary("digraph csp_track {\n}")),
 					Processes = ets:new(processes,[bag]),
 					insert_processes(hd(ProcessList),Processes),
@@ -191,9 +191,14 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 								end
 						end,
 					csp_process:send_message2regprocess(codeserver,stop),
-					{Result1, Result2}
+					{Result1, Result2};
+				_ ->
+					result_for_error()
 			end
 	end.
+
+result_for_error() ->
+	{{{0,0,0},0,0,0,0},0}.
 
 get_slice_code(Digraph, Slice, FirstProcess, File) ->
 	remove_slice_nodes(Digraph),

@@ -177,6 +177,8 @@ search_nodes_same_process(SPAN, G) ->
 			end
 		end || VD <- digraph:vertices(G)]).
 
+read_from_file_content({src_position,N,Ini,_,_}, Lines, other) ->
+	read_from_file_content(({src_span,N,Ini,N,Ini+1,0,0}, Lines, other) ->
 read_from_file_content({src_span,N,Ini,NFin,Fin,_,_}, Lines, other) ->
 	[LineN] = [Line ||{NL, Line} <- Lines, NL == N],
 	Top =
