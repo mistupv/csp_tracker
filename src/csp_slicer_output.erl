@@ -14,33 +14,37 @@ create_slicer_output(Slice, FirstProcess, G, Lines) ->
 
 
 create_out_process([{LhsStr0, Node} | Tail], G, Slice, Lines, Filler, Done) -> 
-	[Next] = digraph:out_neighbours(G, Node),
-	{_,{_,SPAN}} = digraph:vertex(G,Next),
-	case lists:member(SPAN, Done) of 
-		false -> 
-			SameSPAN = search_nodes_same_process(SPAN, G),
-			% io:format("~p\n~p\n", [Next, SameSPAN]),
-			N =
-				case SPAN of 
-					{src_span,N0,_,_,_,_,_} ->
-						N0;
-					{src_position,N0,_,_,_} ->
-						N0 
-				end,
-			LhsStr = 
-				case find_lhs_from(Lines, N) of 
-					"" -> 
-						LhsStr0;
-					Other -> 
-						Other 
-				end,
-			% io:format("SPAN: ~p\nN: ~p\nLhsStr: ~p\n", [SPAN, N, LhsStr]), 
-			{StrBody, Pending} = create_out_for_nodes(SameSPAN, Slice, Lines, G, Filler),
-			% io:format("Pending: ~p\n", [Pending]),
-			PendStr = create_out_process(Tail ++ Pending, G,  Slice, Lines, Filler, [SPAN|Done]),
-			LhsStr ++ " = " ++ StrBody ++ "\n\n" ++ PendStr;
-		true ->
-			create_out_process(Tail, G, Slice, Lines, Filler, Done)
+	case digraph:out_neighbours(G, Node) of
+		[Next] -> 
+			{_,{_,SPAN}} = digraph:vertex(G,Next),
+			case lists:member(SPAN, Done) of 
+				false -> 
+					SameSPAN = search_nodes_same_process(SPAN, G),
+					% io:format("~p\n~p\n", [Next, SameSPAN]),
+					N =
+						case SPAN of 
+							{src_span,N0,_,_,_,_,_} ->
+								N0;
+							{src_position,N0,_,_,_} ->
+								N0 
+						end,
+					LhsStr = 
+						case find_lhs_from(Lines, N) of 
+							"" -> 
+								LhsStr0;
+							Other -> 
+								Other 
+						end,
+					% io:format("SPAN: ~p\nN: ~p\nLhsStr: ~p\n", [SPAN, N, LhsStr]), 
+					{StrBody, Pending} = create_out_for_nodes(SameSPAN, Slice, Lines, G, Filler),
+					% io:format("Pending: ~p\n", [Pending]),
+					PendStr = create_out_process(Tail ++ Pending, G,  Slice, Lines, Filler, [SPAN|Done]),
+					LhsStr ++ " = " ++ StrBody ++ "\n\n" ++ PendStr;
+				true ->
+					create_out_process(Tail, G, Slice, Lines, Filler, Done)
+			end;
+		_ -> 
+			""
 	end;
 create_out_process([], _, _, _, _, _) ->
 	"".
