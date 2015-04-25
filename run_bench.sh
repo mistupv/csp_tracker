@@ -7,4 +7,4 @@ main([String]) ->
 	io:format("Process limit: ~p\n",[erlang:system_info(process_limit)]),
 	csp_tracker_loader:load(),
 	File = list_to_atom(String),  
-	csp_bench:bench(File,'MAIN',2000,1000).
+	csp_bench:bench(File,'MAIN',2000,100).
