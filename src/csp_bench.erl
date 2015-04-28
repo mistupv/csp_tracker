@@ -71,9 +71,9 @@ getListCI(N,C,Means) ->
 	[element(1,lists:nth(N,C)), lists:nth(N,Means), element(2,lists:nth(N,C))].
 
 printLatex(C,Means) ->
-	Times_ = getListCI(4,C,Means) ++ getListCI(5,C,Means) ++ getListCI(6,C,Means),
+	Times_ = getListCI(4,C,Means) ++ getListCI(5,C,Means) ++ getListCI(6,C,Means) ++ getListCI(7,C,Means),
 	Times = [T/1000 || T <- Times_],
-	Graph = getListCI(1,C,Means) ++ getListCI(2,C,Means) ++ getListCI(3,C,Means) ++ getListCI(7,C,Means),
+	Graph = getListCI(1,C,Means) ++ getListCI(2,C,Means) ++ getListCI(3,C,Means) ,
 	Slice = getListCI(8,C,Means),
 	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Times),
 	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Graph),
