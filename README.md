@@ -12,6 +12,8 @@ Both the track and the trace can be stored in a file, or displayed in the screen
 
 You can also try our tool [online](http://kaz.dsic.upv.es/csp_tracker).
 
+The following video shows compilation, run and slicing using CSP-Tracker with a very simple example: [![asciicast](https://asciinema.org/a/exy6nflegrdcwwl0fvxzuzrh4.png)](https://asciinema.org/a/exy6nflegrdcwwl0fvxzuzrh4)
+
 Getting CSP-Tracker
 ----------------
 The code of CSP-Tracker is distributed through a GIT repository on GitHub.
