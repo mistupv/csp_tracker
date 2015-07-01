@@ -11,31 +11,15 @@ get_all_slices(G) ->
 	All = 
 		[ case digraph:vertex(G, V) of
 				{V, {?SLICE, _}} ->
-					Es = digraph:in_edges(G, V),
-					InfoEs = [ digraph:edge(G, E) || E <- Es ],
-					case [V1||{_,V1,_,"control"} <- InfoEs] of 
-						[] ->
-							[];
-						[Next|_] -> 
-							case digraph:vertex(G, Next) of 
-								{_,{"->",_}} ->
-									Es2 = digraph:in_edges(G, Next),
-									InfoEs2 = [ digraph:edge(G, E) || E <- Es2 ],
-									case [V1||{_,V1,_,"control"} <- InfoEs2] of 
-										[] ->
-											[];
-										[Next2|_] -> 
-											Es3 = digraph:in_edges(G, Next2),
-											InfoEs3 = [ digraph:edge(G, E) || E <- Es3 ],
-											Os = digraph:out_edges(G, Next2),
-											InfoOs = [ digraph:edge(G, E) || E <- Os ],
-											Sync = [ V1 ||{_,V1,_,"sync"} <- InfoEs3] ++ [ V2 ||{_,_,V2,"sync"} <- InfoOs],
-											[lists:min([Next2|Sync])]
-									end;
-								_ ->
-									[Next]
-							end
-					end;
+					Es0 = digraph:in_edges(G, V),
+					InfoEs0 = [ digraph:edge(G, E) || E <- Es0 ],
+					Os0 = digraph:out_edges(G, V),
+					InfoOs0 = [ digraph:edge(G, E) || E <- Os0 ],
+					Sync0 = 
+						[V1 || {_,V1,_,"sync"} <- InfoEs0] 
+						++ [V2 ||{_,_,V2,"sync"} <- InfoOs0],
+					AllCommon = [V|Sync0],
+					{lists:min([V|Sync0]), lists:usort([get_actual_vertex(G, VS) || VS <- AllCommon])};
 				_ -> 
 					[]
 		  end || V <- digraph:vertices(G) ],
@@ -45,10 +29,41 @@ get_all_slices(G) ->
 	Result.
 
 
+get_actual_vertex(G, V) ->
+	Es = digraph:in_edges(G, V),
+	InfoEs = [ digraph:edge(G, E) || E <- Es ],
+	case [V1 || {_,V1,_,"control"} <- InfoEs] of 
+		[] ->
+			[];
+		[Next|_] -> 
+			case digraph:vertex(G, Next) of 
+				{_,{"->",_}} ->
+					Es2 = digraph:in_edges(G, Next),
+					InfoEs2 = [ digraph:edge(G, E) || E <- Es2 ],
+					case [V1||{_,V1,_,"control"} <- InfoEs2] of 
+						[] ->
+							[];
+						[Next2|_] -> 
+							Es3 = digraph:in_edges(G, Next2),
+							InfoEs3 = [ digraph:edge(G, E) || E <- Es3 ],
+							Os = digraph:out_edges(G, Next2),
+							InfoOs = [ digraph:edge(G, E) || E <- Os ],
+							Sync = 
+								[ V1 ||{_,V1,_,"sync"} <- InfoEs3]
+								++ [ V2 ||{_,_,V2,"sync"} <- InfoOs],
+							[lists:min([Next2 | Sync])]
+					end;
+				_ ->
+					[Next]
+			end
+	end.
+
 get_slices(G, Selected) ->
 	OrderedSlices = lists:sort(get_all_slices(G)),
-	SelectedVertex = lists:nth(Selected, OrderedSlices),
-	lists:usort(calculate_slice(G, [SelectedVertex],[])).
+	{_, SelectedVertex}  = lists:nth(Selected, OrderedSlices),
+	% io:format("All: ~w\n", [OrderedSlices]),
+	StartSet = lists:flatten(SelectedVertex),
+	lists:usort(calculate_slice(G, StartSet,[])).
 
 calculate_slice(G, [From | Tail], Slice) ->
 	{NList, NSlice} = 

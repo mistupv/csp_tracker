@@ -190,7 +190,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 										TimeCal + TimeGen
 								end
 						end,
-					csp_process:send_message2regprocess(codeserver,stop),
+					csp_process:send_message2regprocess(codeserver, stop),
 					{Result1, Result2};
 				_ ->
 					result_for_error()
@@ -239,9 +239,9 @@ print_from_digraph(Digraph, NameFile, Slice, NoOutput) ->
 	file:write_file(NameFile ++ ".dot", 
 		list_to_binary("digraph " ++ NameFile ++ " {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
 	case NoOutput of 
-		True -> 
+		true -> 
 			ok;
-		False -> 
+		false ->  
 			os:cmd("dot -Tpdf " ++ NameFile ++ ".dot > " ++ NameFile ++ ".pdf")
 	end.
 
@@ -260,7 +260,8 @@ remove_slice_nodes(Digraph) ->
 				case Label of 
 					?SLICE -> 
 						OsArrow = digraph:out_edges(Digraph, Id),
-						[{_EArrow,_,VArrow,_}] = [ digraph:edge(Digraph, O) || O <- OsArrow ],
+						InfoOsArrow = [ digraph:edge(Digraph, O) || O <- OsArrow ],
+						[VArrow] = [VArrow_ || {_EArrow,_,VArrow_,"control"} <- InfoOsArrow],
 						Es = digraph:in_edges(Digraph, Id),
 						InfoEs = [ digraph:edge(Digraph, E) || E <- Es ],
 						Os = digraph:out_edges(Digraph, VArrow),
