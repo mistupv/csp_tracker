@@ -261,7 +261,7 @@ remove_slice_nodes(Digraph) ->
 					?SLICE -> 
 						OsArrow = digraph:out_edges(Digraph, Id),
 						InfoOsArrow = [ digraph:edge(Digraph, O) || O <- OsArrow ],
-						[VArrow] = [VArrow_ || {_EArrow,_,VArrow_,"control"} <- InfoOsArrow],
+						VArrow = hd(lists:usort([VArrow_ || {_EArrow,_,VArrow_,"control"} <- InfoOsArrow])),
 						Es = digraph:in_edges(Digraph, Id),
 						InfoEs = [ digraph:edge(Digraph, E) || E <- Es ],
 						Os = digraph:out_edges(Digraph, VArrow),
