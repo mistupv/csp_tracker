@@ -163,7 +163,7 @@ Finally, when the specification produces an infinite computation, we can define 
 	
 Dynamic Slicing
 -------------
-In order to slice a CSP specification the user should place a special channel named 'slice' inmediatelly after a channel occurence of interest. Note that this special channel *should* be declarated in the channel section of the specification. 
+In order to slice a CSP specification the user should place a special channel named 'slice' inmediatelly after a channel occurence of interest. Note that this special channel *must* be declared in the channel section of the specification. 
 
 	channel a,b,c, slice
 	
