@@ -18,8 +18,7 @@ get_all_slices(G) ->
 					Sync0 = 
 						[V1 || {_,V1,_,"sync"} <- InfoEs0] 
 						++ [V2 ||{_,_,V2,"sync"} <- InfoOs0],
-					AllCommon = [V|Sync0],
-					{lists:min([V|Sync0]), lists:usort([get_actual_vertex(G, VS) || VS <- AllCommon])};
+					{lists:min([V|Sync0]), lists:usort([get_actual_vertex(G, VS) || VS <- [V|Sync0]])};
 				_ -> 
 					[]
 		  end || V <- digraph:vertices(G) ],
