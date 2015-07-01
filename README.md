@@ -160,3 +160,47 @@ Finally, when the specification produces an infinite computation, we can define 
 	Total of edges: 66 edges
 	Size of DOT file: 9014 bytes
 	******************************
+	
+Dynamic Slicing
+-------------
+In order to slice a CSP specification the user should place a special channel named 'slice' inmediatelly after a channel occurence of interest. Note that this special channel *should* be declarated in the channel section of the specification. 
+
+	channel a,b,c, slice
+	
+	MAIN = P ||| Q
+	
+	P = a -> b -> slice -> SKIP
+	
+	Q = a -> b -> c -> slice -> SKIP
+
+Then, we can run the tool as usual. After the track is created, the tool will ask the user a question like this:
+
+	*********** Slice ************
+	The slicing criterion was executed 2 times.
+	
+	Which execution are you interested? 
+	
+According to the answer an output with the slice will be generated:
+	
+	Which execution are you interested? 2
+	Total of time generating slice: 0.176 ms
+	
+	********* Gaps Slice **********
+	
+	MAIN  = (Q  ||| ___)
+	
+	Q  = a -> b -> c -> ___
+	
+	
+	*******************************
+	
+	******* Executable Slice ******
+	
+	MAIN  = (Q  ||| STOP)
+	
+	Q  = a -> b -> c -> STOP
+	
+	
+	*******************************
+	Total of time creating output:  0.163 ms
+	*******************************
