@@ -14,7 +14,7 @@ You can also try our tool [online](http://kaz.dsic.upv.es/csp_tracker).
 
 The following video shows compilation, run and slicing using CSP-Tracker with a very simple example:
 
-[![asciicast](https://asciinema.org/a/exy6nflegrdcwwl0fvxzuzrh4.png)](https://asciinema.org/a/exy6nflegrdcwwl0fvxzuzrh4)
+[![asciicast](https://asciinema.org/a/7vmrtodxv1fmpstt8dzz50m1a.png)](https://asciinema.org/a/7vmrtodxv1fmpstt8dzz50m1a)
 
 Getting CSP-Tracker
 ----------------
