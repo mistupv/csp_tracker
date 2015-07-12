@@ -198,7 +198,7 @@ read_from_file_content({src_span,N,Ini,_NFin,_Fin,_,_}, Lines, prefix) ->
 	lists:takewhile(fun(Char) -> Char =/= $  end, lists:sublist(LineN, Ini, length(LineN)));
 read_from_file_content({src_span,N,Ini,NFin,Fin0,_,_}, Lines, call) ->
 	[LineN] = [Line ||{NL, Line} <- Lines, NL == N],
-	% io:format("~p\n~p\n",[{Ini,NFin,Fin0}, N]),
+	io:format("~p\n~p\n",[{Ini,NFin,Fin0}, N]),
 	{Top, Fin} =
 		case NFin of 
 			N -> 
@@ -207,15 +207,15 @@ read_from_file_content({src_span,N,Ini,NFin,Fin0,_,_}, Lines, call) ->
 				{length(LineN), length(LineN)}
 		end,
 	Name = lists:sublist(LineN, Ini, Top),
-	% io:format("~p\n",[[lists:nth(Fin - 1, LineN), lists:nth(Fin, LineN), lists:nth(Fin + 1, LineN)]]),
+	io:format("~p\n",[[lists:nth(Fin - 1, LineN), lists:nth(Fin, LineN), lists:nth(Fin + 1, LineN)]]),
 	Args = 
 		case lists:nth(Fin + 1, LineN) of 
 			$( ->
-				lists:takewhile(fun(Char) -> Char =/= $) end, LineN) ++ ")";
+				lists:takewhile(fun(Char) -> Char =/= $) end, lists:sublist(LineN, Fin + 1, length(LineN))) ++ ")";
 			_ ->
 				""
 		end,
-	% io:format("~p\n",[{Name, Args}]),
+	io:format("~p\n",[{Name, Args}]),
 	Name ++ Args.
 % read_from_file_content(Other1, Lines, Other2) ->
 % 	io:format("Other1: ~p\nOther2: ~p\n", [Other1, Other2]),
