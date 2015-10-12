@@ -43,7 +43,7 @@ print_message(Msg,NoOutput) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
 loop_root(First) ->
-        %io:format("a la espera root ~p\n",[get_self()]),
+    % io:format("a la espera root ~p\n",[get_self()]),
 	receive	
 		{finished,_,_} ->
 			First!ok;
@@ -53,6 +53,7 @@ loop_root(First) ->
 		{stopped,_} -> 
 			First!stopped;
 		{event,Event,Channels,Pid,PidPrefixing,_,_} ->
+			% io:format("Llega evento ~p\n",[Event]),
 		    % Channels_ = lists:reverse(Channels),
 		    Channels_ = Channels,
 			SelectedChannels_ = select_channels(Channels_,Event),
@@ -101,7 +102,7 @@ loop(Process,PidParent,GraphParent,PendingSC,Renaming) ->
 			             PidParent,GraphParent,Renaming),
 	  	        {NState_, PendingSC, NGraphParent_};
 		     _ ->
-		        %io:format("Create_graph de ~p (~p)\n",[Process,get_self()]),
+		        % io:format("Create_graph de ~p (~p)\n",[Process,get_self()]),
 				send_message2regprocess(printer,{create_graph,Process,GraphParent,get_self()}),
 				receive
 					{created,NGraphParent_} ->
@@ -113,7 +114,7 @@ loop(Process,PidParent,GraphParent,PendingSC,Renaming) ->
 		end,
         case NState of
              {finished_skip,SPANSKIP} ->
-             	%io:format("Envio: ~p\n",[{finished_skip,SPANSKIP,NGraphParent,get_self()}]),
+             	% io:format("Envio: ~p\n",[{finished_skip,SPANSKIP,NGraphParent,get_self()}]),
              	IsFinal =
              	  case NPendingSC of
              	       [] -> true;
@@ -131,14 +132,15 @@ loop(Process,PidParent,GraphParent,PendingSC,Renaming) ->
                            send_message2regprocess(printer,{print,'   tau',get_self()}),
                            send_message2regprocess(printer,{create_graph,{';',FinishedNodes,SPANSC},-1,get_self()}),
                            receive
-			     {printed,'   tau'} -> 
-			   	ok
-			   end,
-			   receive
-			      {created,NodeSC} -> 
-				   loop(Pending,PidParent,NodeSC,TPendingSC,RenamingOfPending)
-			   end;
-                        _ ->
+			     			{printed,'   tau'} -> 
+			   					ok
+			   			   end,
+						   receive
+						      {created,NodeSC} -> 
+						      	% io:format("CONTINUA in ~p\n", [self()]),
+							   loop(Pending,PidParent,NodeSC,TPendingSC,RenamingOfPending)
+						   end;
+                    _ ->
                  	   PidParent!{finished,Pid,FinishedNodes}
                  end;
              {stopped,Pid} -> 
@@ -160,14 +162,16 @@ loop(Process,PidParent,GraphParent,PendingSC,Renaming) ->
 process({prefix,_,Channels,Event,Process,_}=Prefixing,PidParent,GraphParent,Renaming) -> 
 	ExecutedEvent = rename_event(Event,Renaming),
 	% io:format("\tProcess: ~p\n", [Channels]),
+	% io:format("Prefixing in ~p: ~p\n", [self(), {Channels,Event}]),
 	prefixing_loop(PidParent,Prefixing,Process,GraphParent,
 	              {event,ExecutedEvent,Channels,get_self(),get_self(),Prefixing,GraphParent},
 	              Channels);
 process({'|~|',PA,PB,_},_,_,_) ->
 	process_choice(PA,PB,true);
 process({'[]',PA,PB,_},PidParent,GraphParent,Renaming) ->
-        {PA_,PB_} = random_branches(PA,PB),
-	process_external_choice(PA_,PB_,PidParent,GraphParent,Renaming);
+    {PA_,PB_} = random_branches(PA,PB),
+	process_external_choice([PA_,PB_],PidParent,GraphParent,Renaming);
+	% process_external_choice(PA_,PB_,PidParent,GraphParent,Renaming);
 process({'ifte',Condition,PA,PB,_,_,_},_,_,_) ->
 	Event = list_to_atom("   tau -> Condition Choice value "++atom_to_list(Condition)),
 	send_message2regprocess(printer,{print,Event,get_self()}),
@@ -213,7 +217,7 @@ process({stop,_},_,_,_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	
 prefixing_loop(Pid,Prefixing,Process,GraphParent,Message,Channels) ->
-	%io:format("\nEnvia a ~p el missatge ~p\n",[Pid,Message]),
+	% io:format("\nEnvia a ~p el missatge ~p\n",[Pid,Message]),
 	Pid!Message,
 	receive 
 		{executed,_,Pid,SelectedChannels} ->
@@ -236,9 +240,11 @@ prefixing_loop(Pid,Prefixing,Process,GraphParent,Message,Channels) ->
 				end;
        	rejected ->
 		%timer:sleep(50),
+			% io:format("\nREJECTED ~p el missatge ~p\n",[Pid,Message]),
 			prefixing_loop(Pid,Prefixing,Process,GraphParent,Message,Channels);
 		rejected_all ->
 		%timer:sleep(50),
+			% io:format("\nREJECTED_ALL ~p el missatge ~p\n",[Pid,Message]),
 			{{stopped,get_self()},GraphParent}
 	end.
 	
@@ -276,12 +282,14 @@ process_choice(PA,PB,PrintTau) ->
 process_parallelism(PA,PB,Events,PidParent,GraphParent,Renaming) ->
 	PidA = spawn(csp_process,loop,[PA,get_self(),GraphParent,[],[]]),
 	PidB = spawn(csp_process,loop,[PB,get_self(),GraphParent,[],[]]),
-	%io:format("Parallelisme fill de ~p: ~p\n",[get_self(),{PidA,PidB}]),
+	% io:format("Parallelisme fill de ~p: ~p\n",[get_self(),{PidA,PidB}]),
 	parallelism_loop(PidA,PidB,Events,PidParent,[],Renaming,{{},{}}).
 	
 parallelism_loop(PidA,PidB,SyncEvents,PidParent,Finished,Renaming,TemporalGraphs) ->
+	% io:format("LOOP Parallelisme fill de ~p: ~p\n",[get_self(),{PidA,PidB}]),
 	case length([Fin || Fin = {_,NodesFinished} <- Finished, NodesFinished =/=[]]) of
 	     2 -> 
+	       % io:format("FIN Parallelisme fill de ~p: ~p\n",[get_self(),{PidA,PidB}]),
 	       {finished,get_self(),lists:append([NodesFinished || 
 		                              {_,NodesFinished} <- Finished])};
 %	       send_message2regprocess(printer,{print,tick_SP,get_self()}),
@@ -296,23 +304,27 @@ parallelism_loop(PidA,PidB,SyncEvents,PidParent,Finished,Renaming,TemporalGraphs
 	     		  2 -> 
 	     		  	{stopped,get_self()};
 	     		  _ -> 
-	     		  	%io:format("A la escolta SP ~p\n",[get_self()]),
+	     		  	% io:format("A la escolta SP ~p\n",[get_self()]),
 					receive
 					   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,PidAorB,true} -> 
-					      case length([Fin || Fin = {_,NodesFinished} <- Finished, 
-					      						NodesFinished =/=[]]) of
-						   1 -> 
-						       PidParent!{finished_skip,SPANSKIP,GraphParentSkip,
-						                  PidSkip,get_self(),true};
-						   _ -> 
-						       PidParent!{finished_skip,SPANSKIP,GraphParentSkip,
-						                  PidSkip,get_self(),false} 
-					      end,
+					   		Send = 
+						      case length([Fin || Fin = {_,NodesFinished} <- Finished, 
+						      						NodesFinished =/=[]]) of
+							   1 -> 
+							       PidParent!{finished_skip,SPANSKIP,GraphParentSkip,
+							                  PidSkip,get_self(),true};
+							   _ -> 
+							       PidParent!{finished_skip,SPANSKIP,GraphParentSkip,
+							                  PidSkip,get_self(),false} 
+						      end,
 					      receive
 					        {finished,PidAorB,NodesFinished} ->
 					           parallelism_loop(PidA,PidB,SyncEvents,PidParent,
 					                            [{PidAorB,NodesFinished}|Finished],
-					                            Renaming,TemporalGraphs)
+					                            Renaming,TemporalGraphs);
+					        Other ->
+					        	self()!Other,
+					        	parallelism_loop(PidA,PidB,SyncEvents,PidParent,Finished,Renaming,TemporalGraphs)
 					      end;
 					   {finished_skip,_,_,_,_,false} = Message ->
 					      PidParent!Message,
@@ -347,6 +359,7 @@ parallelism_loop(PidA,PidB,SyncEvents,PidParent,Finished,Renaming,TemporalGraphs
 parallelism_event({event,Event,Channels,Pid,PidPrefixing,Prefixing,GraphParent},PidA,PidB,
                   SyncEvents,PidParent,Finished,Renaming,TemporalGraphs) ->
 	% io:format("\tparallelism: ~p\n", [Channels]),
+	% io:format("Event Parallelisme ~p: ~p\n",[{PidA,PidB}, Event]),
 	ExecutedEvent = rename_event(Event,Renaming),
 	NTemporalGraphs = 
 	        case Pid =:= PidA of
@@ -519,100 +532,220 @@ create_channels(ChannelsA,ChannelsB,FinalChannels) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 	
-process_external_choice(PA,PB,PidParent,GraphParent,Renaming) -> 
-	PidA = spawn(csp_process,loop,[PA,get_self(),GraphParent,[],[]]),
-	PidB = spawn(csp_process,loop,[PB,get_self(),GraphParent,[],[]]),
-	%io:format("External choice fill de ~p: ~p\n",[get_self(),{PidA,PidB}]),
-	external_choice_loop(PidA,PidB,PidParent,Renaming).
+% process_external_choice(PA,PB,PidParent,GraphParent,Renaming) -> 
+% 	PidA = spawn(csp_process,loop,[PA,get_self(),GraphParent,[],[]]),
+% 	PidB = spawn(csp_process,loop,[PB,get_self(),GraphParent,[],[]]),
+% 	% io:format("External choice fill de ~p: ~p\n",[get_self(),{PidA,PidB}]),
+% 	% io:format("External choice fill de ~p: ~p\n",[get_self(),{PA,PB}]),
+% 	external_choice_loop(PidA,PidB,PidParent,Renaming).
 	
 
-external_choice_loop(PidA,PidB,PidParent,Renaming) ->
-	%io:format("A la escolta EC ~p\n",[get_self()]),
-	receive
-	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,true} ->
-	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),true},
-	     receive
-	        {finished,Pid,NodesFinished} -> 
-	           finish_external_choice(NodesFinished)
-	     end;
-	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,_,false} ->
-	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),false},
-	     external_choice_loop(PidA,PidB,PidParent,Renaming);
-	   {finished,_,NodesFinished} ->
-	     finish_external_choice(NodesFinished);
-	   {stopped,PidA} ->
-	     one_branch_loop(PidB,PidParent,Renaming);
-	   {stopped,PidB} ->
-	     one_branch_loop(PidA,PidParent,Renaming);
-	   {event,Event,Channels,PidA,PidPrefixing,Prefixing,GraphParent} ->
-	     ExecutedEvent = rename_event(Event,Renaming),
-	     PidParent!{event,ExecutedEvent,Channels,get_self(),PidPrefixing,Prefixing,GraphParent},
-	     process_event_ec(Renaming,PidPrefixing,PidParent,PidA,
-	                      PidA,PidB);
-	   {event,Event,Channels,PidB,PidPrefixing,Prefixing,GraphParent} ->
-	     ExecutedEvent = rename_event(Event,Renaming),
-	     PidParent!{event,ExecutedEvent,Channels,get_self(),PidPrefixing,Prefixing,GraphParent},
-	     process_event_ec(Renaming,PidPrefixing,PidParent,PidB,
-	                      PidA,PidB)
-	end.	
+% external_choice_loop(PidA,PidB,PidParent,Renaming) ->
+% 	% io:format("A la escolta EC ~p\n",[get_self()]),
+% 	receive
+% 	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,true} ->
+% 	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),true},
+% 	     receive
+% 	        {finished,Pid,NodesFinished} -> 
+% 	           finish_external_choice(NodesFinished)
+% 	     end;
+% 	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,_,false} ->
+% 	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),false},
+% 	     external_choice_loop(PidA,PidB,PidParent,Renaming);
+% 	   {finished,_,NodesFinished} ->
+% 	     finish_external_choice(NodesFinished);
+% 	   {stopped,PidA} ->
+% 	     one_branch_loop(PidB,PidParent,Renaming);
+% 	   {stopped,PidB} ->
+% 	     one_branch_loop(PidA,PidParent,Renaming);
+% 	   {event,Event,Channels,PidA,PidPrefixing,Prefixing,GraphParent} ->
+% 	     ExecutedEvent = rename_event(Event,Renaming),
+% 	     PidParent!{event,ExecutedEvent,Channels,get_self(),PidPrefixing,Prefixing,GraphParent},
+% 	     process_event_ec(Renaming,PidPrefixing,PidParent,PidA,
+% 	                      PidA,PidB);
+% 	   {event,Event,Channels,PidB,PidPrefixing,Prefixing,GraphParent} ->
+% 	     ExecutedEvent = rename_event(Event,Renaming),
+% 	     PidParent!{event,ExecutedEvent,Channels,get_self(),PidPrefixing,Prefixing,GraphParent},
+% 	     process_event_ec(Renaming,PidPrefixing,PidParent,PidB,
+% 	                      PidA,PidB)
+% 	end.	
        
-process_event_ec(Renaming,PidPrefixing,PidParent,Pid,PidA,PidB) ->
-	     receive
-	     	{executed,PidPrefixing,PidParent,SelectedChannels} -> 
-	     	      Pid!{executed,PidPrefixing,get_self(),SelectedChannels},
-                      receive
-                         {sync_info,_} = Message ->
-                            PidParent ! Message
-                      end,
-	              one_branch_loop(Pid,PidParent,Renaming);
-	     	rejected -> 
-	     		Pid!rejected,
-	     		external_choice_loop(PidA,PidB,PidParent,Renaming);
-	     	rejected_all -> 
-	     		Pid!rejected_all,
-	     		external_choice_loop(PidA,PidB,PidParent,Renaming)
-	     end.
+% process_event_ec(Renaming,PidPrefixing,PidParent,Pid,PidA,PidB) ->
+% 	% io:format("Process event EC ~p\n",[get_self()]),
+% 	     receive
+% 	     	{executed,PidPrefixing,PidParent,SelectedChannels} -> 
+% 	     	      Pid!{executed,PidPrefixing,get_self(),SelectedChannels},
+%                       receive
+%                          {sync_info,_} = Message ->
+%                             PidParent ! Message
+%                       end,
+% 	              one_branch_loop(Pid,PidParent,Renaming);
+% 	     	rejected -> 
+% 	     		Pid!rejected,
+% 	     		external_choice_loop(PidA,PidB,PidParent,Renaming);
+% 	     	rejected_all -> 
+% 	     		Pid!rejected_all,
+% 	     		external_choice_loop(PidA,PidB,PidParent,Renaming)
+% 	     end.
 
-one_branch_loop(Pid,PidParent,Renaming) ->
-	%io:format("A la escolta OP ~p (selected ~p)\n",[get_self(),Pid]),
-	receive
-	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,true} ->
-	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),true},
-	     receive 
-	       {finished,Pid,NodesFinished} -> 
-	          {finished,get_self(),NodesFinished}
-	     end;
-	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,false} ->
-	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),false},
-	     one_branch_loop(Pid,PidParent,Renaming);
-	   {finished,Pid,NodesFinished} ->
-	     {finished,get_self(),NodesFinished};
-	   {stopped,Pid} ->
-	     {stopped,get_self()};
-	   {event,Event,Channels,Pid,PidPrefixing,Prefixing,GraphParent} ->
-	     ExecutedEvent = rename_event(Event,Renaming),
-	     PidParent!{event,ExecutedEvent,Channels,get_self(),PidPrefixing,Prefixing,GraphParent},
-	     receive
-		   {executed,PidPrefixing,PidParent,SelectedChannels} -> 
-		        Pid!{executed,PidPrefixing,get_self(),SelectedChannels},
-	                receive
-	                   {sync_info,_} = Message ->
-	                      PidParent ! Message
-	                end;
-	           rejected -> Pid!rejected;
-	           rejected_all -> Pid!rejected_all
-	     end,
-	     one_branch_loop(Pid,PidParent,Renaming)	   
-	end.
+% one_branch_loop(Pid,PidParent,Renaming) ->
+% 	% io:format("A la escolta OP ~p (selected ~p)\n",[get_self(),Pid]),
+% 	receive
+% 	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,true} ->
+% 	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),true},
+% 	     receive 
+% 	       {finished,Pid,NodesFinished} -> 
+% 	          {finished,get_self(),NodesFinished}
+% 	     end;
+% 	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,false} ->
+% 	     PidParent!{finished_skip,SPANSKIP,GraphParentSkip,PidSkip,get_self(),false},
+% 	     one_branch_loop(Pid,PidParent,Renaming);
+% 	   {finished,Pid,NodesFinished} ->
+% 	     {finished,get_self(),NodesFinished};
+% 	   {stopped,Pid} ->
+% 	     {stopped,get_self()};
+% 	   {event,Event,Channels,Pid,PidPrefixing,Prefixing,GraphParent} ->
+% 	     ExecutedEvent = rename_event(Event,Renaming),
+% 	     PidParent!{event,ExecutedEvent,Channels,get_self(),PidPrefixing,Prefixing,GraphParent},
+% 	     receive
+% 		   {executed,PidPrefixing,PidParent,SelectedChannels} -> 
+% 		        Pid!{executed,PidPrefixing,get_self(),SelectedChannels},
+% 	                receive
+% 	                   {sync_info,_} = Message ->
+% 	                      PidParent ! Message
+% 	                end;
+% 	           rejected -> Pid!rejected;
+% 	           rejected_all -> Pid!rejected_all
+% 	     end,
+% 	     one_branch_loop(Pid,PidParent,Renaming)	   
+% 	end.
 	     
 
-finish_external_choice(NodesFinished) ->
-       send_message2regprocess(printer,{print,tick_EC,get_self()}),
-       receive
-	      {printed,tick_EC} -> 
-	         {finished,get_self(),NodesFinished}
-       end.
+% finish_external_choice(NodesFinished) ->
+%        send_message2regprocess(printer,{print,tick_EC,get_self()}),
+%        receive
+% 	      {printed,tick_EC} -> 
+% 	         {finished,get_self(),NodesFinished}
+%        end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%   External Choices General
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+	
+process_external_choice(PList0,PidParent,GraphParent,Renaming) ->
+	PList = 
+	% From: http://stackoverflow.com/a/8820501/4162959
+		[X || {_,X} <- lists:sort(
+			[ {random:uniform(), P} || P <- PList0])],
+	PidList = 
+		[spawn(csp_process,loop,[P,get_self(),GraphParent,[],[]]) 
+	 	 || P <- PList],
+	external_choice_loop(PidList,PidParent,Renaming).
+	
+
+external_choice_loop(PidList,PidParent,Renaming) ->
+	% io:format("External choice ~p -> ~p\n", [self(), PidList]),
+	receive
+	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,true} ->
+	   		case lists:member(Pid, PidList) of 
+	   			true -> 
+					PidParent!
+						{finished_skip,
+							SPANSKIP,GraphParentSkip,
+							PidSkip,get_self(),true},
+					receive
+						{finished,Pid,NodesFinished} -> 
+						   	case PidList of 
+						   	 	[Pid] ->
+						   	 		{finished,get_self(),NodesFinished};
+						   	 	_ ->
+						   	 		finish_external_choice(NodesFinished)
+						   	 end
+					end;
+				false -> 
+					external_choice_loop(PidList,PidParent,Renaming)
+			end;
+	   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,Pid,false} ->
+		   	case lists:member(Pid,PidList) of 
+		   		true ->
+				    PidParent!
+				    	{finished_skip,
+				    		SPANSKIP,GraphParentSkip,
+				    		PidSkip,get_self(),false},
+				    external_choice_loop(PidList,PidParent,Renaming);
+				false ->
+					external_choice_loop(PidList,PidParent,Renaming) 
+			end;
+	   {finished,Pid,NodesFinished} ->
+	   		case lists:member(Pid,PidList) of
+	   			true ->
+					case PidList of 
+						[Pid] ->
+							{finished,get_self(),NodesFinished};
+						_ ->
+							finish_external_choice(NodesFinished)
+					end; 
+				false -> 
+					external_choice_loop(PidList,PidParent,Renaming) 
+			end;
+	   {stopped,Pid} ->
+	   		case lists:member(Pid,PidList) of
+	   			true ->
+					NPidList = PidList -- Pid, 
+					case NPidList of 
+						[] -> 
+							{stopped,get_self()};
+						_ -> 
+							external_choice_loop(NPidList,PidParent,Renaming) 
+					end;
+				false -> 
+					external_choice_loop(PidList,PidParent,Renaming) 
+			end;
+	   {event,Event,Channels,Pid,PidPrefixing,Prefixing,GraphParent} ->
+	   		% io:format("External choice ~p -> received event ~p\n", [self(), {Event,Pid}]),
+		   	case lists:member(Pid,PidList) of
+	   			true ->	
+					ExecutedEvent = rename_event(Event,Renaming),
+					% io:format("External choice ~p -> envia a parent ~p\n", [self(), {Event,PidParent}]),
+					PidParent!
+						{event,
+							ExecutedEvent,Channels,get_self(),
+							PidPrefixing,Prefixing,GraphParent},
+					process_event_ec(
+						Renaming,PidPrefixing,PidParent,Pid,PidList);
+				false ->
+					external_choice_loop(PidList,PidParent,Renaming) 
+			end
+	end.	
        
+process_event_ec(Renaming,PidPrefixing,PidParent,Pid,PidList) ->
+	% io:format("Receiving event ~p\n", [self()]),
+	receive
+		{executed,PidPrefixing,PidParent,SelectedChannels} -> 
+			Pid!{executed,PidPrefixing,get_self(),SelectedChannels},
+			receive
+			 	{sync_info,_} = Message ->
+			    	PidParent ! Message
+			end,
+			% io:format("One process ~p -> ~p\n", [self(), Pid]),
+	      	external_choice_loop([Pid],PidParent,Renaming);
+		rejected -> 
+			Pid!rejected,
+			external_choice_loop(PidList,PidParent,Renaming);
+		rejected_all -> 
+			Pid!rejected_all,
+			external_choice_loop(PidList,PidParent,Renaming)
+	end.
+
+finish_external_choice(NodesFinished) ->
+	send_message2regprocess(printer,{print,tick_EC,get_self()}),
+	receive
+	  {printed,tick_EC} -> 
+	     {finished,get_self(),NodesFinished}
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

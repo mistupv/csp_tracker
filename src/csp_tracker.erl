@@ -122,7 +122,10 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					TimeBeforeExecuting = now(),
 					{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent} = csp_process:first(FirstProcess,Timeout,NoOutput),
 					{NodesDigraph, EdgesDigraph} = DigraphContent,
+					% TimeBeforeTrack = now(),
 					Digraph = build_digraph(NodesDigraph, EdgesDigraph),
+					% TimeAfterTrack = now(),
+					% io:format("Total of time generate track:\t~p ms\n",[timer:now_diff(TimeAfterTrack - TimeBeforeTrack)]),
 					%TimeAfterExecuting = now(),
 					case Timeout of
 						infinity -> 
@@ -152,6 +155,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 								io:format("\n********** Results ************\n"),
 								io:format("Total of time converting:\t~p ms\n",[TimeConversion/1000]),
 								io:format("Total of time executing:\t~p ms\n",[TimeExecuting/1000]),
+								% io:format("Total of time generate track:\t~p ms\n",[timer:now_diff(TimeAfterTrack, TimeBeforeTrack) / 1000]),
 								io:format("Total of time:\t~p ms\n",[(TimeExecuting + TimeConversion)/1000]),
 								io:format("Total of node:\t~p nodes\n",[N]),
 								io:format("Total of control edges:\t~p edges\n",[E]),
@@ -242,8 +246,34 @@ print_from_digraph(Digraph, NameFile, Slice, NoOutput) ->
 		true -> 
 			ok;
 		false ->  
-			os:cmd("dot -Tpdf " ++ NameFile ++ ".dot > " ++ NameFile ++ ".pdf")
+			PdfOutputFun = 
+				fun()->
+					PidParent = 
+						receive 
+							{pdf_pid, PidParent_} ->
+								PidParent_
+						end,
+					os:cmd("dot -Tpdf " ++ NameFile ++ ".dot > " ++ NameFile ++ ".pdf"),
+					PidParent!pdf_finished
+				end,
+			PidPdfProcess = spawn(PdfOutputFun),
+			PidPdfProcess!{pdf_pid, self()},
+			receive 
+				pdf_finished ->
+					ok
+			after 
+				2000 ->
+					try
+						exit(PidPdfProcess, ok),
+						os:cmd("pkill dot")
+					catch
+						_:_ ->
+							ok
+					end
+					% io:format("\nUnable to generate PDF output.\n")
+			end
 	end.
+	% ok.
 
 slice_output(Slice, FirstProcess, G, Lines) ->
 	TimeBeforeExecuting = now(),
