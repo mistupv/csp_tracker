@@ -1,17 +1,34 @@
 -module(csp_bench).
 
--export([bench/4]).
+-export([bench/4, bench_no_latex/4]).
 
 bench(File,InitialProcees,Timeout,Iterations) ->
 	csp_tracker:track(File,InitialProcees,[Timeout,no_output]),
 	Result = bench_aux(File,InitialProcees,Timeout,Iterations,Iterations,[[],[],[],[],[],[],[],[]]),
+	FunOutput = 
+		fun(Means, C001, C005) ->
+			io:format("Data for alpha = 0,01\n"),
+			printLatex(C001,Means),
+			io:format("Data for alpha = 0,05\n"),
+			printLatex(C005,Means)
+		end,
 	io:format("Data for arithmetic means.\n"),
-	calculate_with_mean(Result,Iterations,arithmetic),
+	calculate_with_mean(Result,Iterations,arithmetic, FunOutput),
 	io:format("Data for harmonic means.\n"),
-	calculate_with_mean(Result,Iterations,harmonic).
+	calculate_with_mean(Result,Iterations,harmonic, FunOutput).
+
+bench_no_latex(File,InitialProcees,Timeout,Iterations) ->
+	csp_tracker:track(File,InitialProcees,[Timeout,no_output]),
+	Result = bench_aux(File,InitialProcees,Timeout,Iterations,Iterations,[[],[],[],[],[],[],[],[]]),
+	% io:format("Data for arithmetic means.\n"),
+	FunOutput = 
+		fun(Means, _, _) ->
+			io:format("~p ~p\n", [Timeout, lists:nth(7,Means)])
+		end,
+	calculate_with_mean(Result,Iterations,arithmetic, FunOutput).
 
 
-calculate_with_mean(Result,Iterations,TypeMean) ->
+calculate_with_mean(Result,Iterations,TypeMean, FunOutput) ->
 	Means = 
 		case TypeMean of 
 			arithmetic -> 
@@ -39,17 +56,14 @@ calculate_with_mean(Result,Iterations,TypeMean) ->
 	C005 = FunCalculateCs(1.96),
 	C001 = FunCalculateCs(2.575),
 	% io:format("~p\n",[{Means,StandardDeviations,C005,C001}]),
-	io:format("Data for alpha = 0,01\n"),
-	printLatex(C001,Means),
-	io:format("Data for alpha = 0,05\n"),
-	printLatex(C005,Means).
+	FunOutput(Means, C001, C005).
 
 
 bench_aux(_,_,_,_,0,Acc) ->
 	Acc;
 bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]) ->
 	Result = csp_tracker:track(File,InitialProcees,[Timeout,no_output]),
-	io:format("Iteration ~p: ~p\n",[1 + TotalIterations - Iterations, Result]),
+	% io:format("Iteration ~p: ~p\n",[1 + TotalIterations - Iterations, Result]),
 	{{{IN,ICE,ISE},ITC,ITE,ITT,ISF},ITSLC} = Result,
 	case Result of 
 		{{{0,0,0},_,_,_,_},_} ->
