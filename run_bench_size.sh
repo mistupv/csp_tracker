@@ -9,6 +9,6 @@ main([String]) ->
 	File = list_to_atom(String),  
 	MiliSecList = lists:seq(100, 5000, 100),
 	% MiliSecList = lists:seq(500, 20000, 500),
-	[csp_bench:bench_no_latex(File,'MAIN',MiliSec,1000) 
+	[csp_bench:bench_no_latex(File,'MAIN',MiliSec,100) 
 	 || MiliSec <- MiliSecList],
 	ok.
