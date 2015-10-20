@@ -7,4 +7,5 @@ for i in "${array[@]}"; do
 done
 
 #escript run_bench_size.sh 'benchmarks/ReadWrite.csp' > results/ReadWrite.txt
+# escript run_bench_size.sh 'benchmarks/Loop.csp' > results/Loop.txt
 

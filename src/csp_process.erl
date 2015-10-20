@@ -222,10 +222,10 @@ prefixing_loop(Pid,Prefixing,Process,GraphParent,Message,Channels) ->
 	receive 
 		{executed,_,Pid,SelectedChannels} ->
 				% io:format("\tEXE_Chan: ~p\n\tEXE_SCHan: ~p\n",[Channels,SelectedChannels]),
-		        Dict = createDict(Channels,SelectedChannels),
+				{event,ExecutedEvent,_,_,_,_,_} = Message,
+		        Dict = createDict(Channels,SelectedChannels,ExecutedEvent),
 		        NPrefixing = csp_parsing:replace_parameters(Prefixing,Dict),
 		        % io:format("Dict: ~p\nAntes: ~p\nDespues: ~p\n",[Dict,Prefixing,NPrefixing]),
-		        {event,ExecutedEvent,_,_,_,_,_} = Message,
 		        % io:format("ExecutedEvent: ~p\n",[ExecutedEvent]),
 		        % io:format("SelectedChannels: ~p\n",[SelectedChannels]),
 		        send_message2regprocess(printer,{create_graph,{renamed_event,ExecutedEvent,NPrefixing},GraphParent,get_self()}),
@@ -876,17 +876,19 @@ create_channels_string([Channel|Tail]) when is_integer(Channel) ->
 create_channels_string([Channel|Tail]) when is_atom(Channel) ->
 	atom_to_list(Channel)++"."++create_channels_string(Tail).
 	
-createDict([{'inGuard',Var,_}|TC],[Selected|TS]) when is_list(Var) ->
-	[{list_to_atom(Var),Selected}|createDict(TC,TS)];
-createDict([{'inGuard',Var,_}|TC],[Selected|TS]) when is_atom(Var) ->
-	[{Var,Selected}|createDict(TC,TS)];
-createDict([{in,Var}|TC],[Selected|TS]) when is_list(Var) ->
-	[{list_to_atom(Var),Selected}|createDict(TC,TS)];
-createDict([{in,Var}|TC],[Selected|TS]) when is_atom(Var) ->
-	[{Var,Selected}|createDict(TC,TS)];
-createDict([{out,_}|TC],[_|TS]) ->
-	createDict(TC,TS);
-createDict([],[]) ->
+createDict([{'inGuard',Var,_}|TC],[Selected|TS],EE) when is_list(Var) ->
+	[{list_to_atom(Var),Selected}|createDict(TC,TS,EE)];
+createDict([{'inGuard',Var,_}|TC],[Selected|TS],EE) when is_atom(Var) ->
+	[{Var,Selected}|createDict(TC,TS,EE)];
+createDict([{in,Var}|TC],[Selected|TS],EE) when is_list(Var) ->
+	[{list_to_atom(Var),Selected}|createDict(TC,TS,EE)];
+createDict([{in,Var}|TC],[Selected|TS],EE) when is_atom(Var) ->
+	[{Var,Selected}|createDict(TC,TS,EE)];
+createDict([{in,_}|_],_,EE) ->
+	throw(lists:flatten(io_lib:format("Detected in channel without defined options when exececuting event ~p", [EE])));
+createDict([{out,_}|TC],[_|TS],EE) ->
+	createDict(TC,TS,EE);
+createDict([],[],_) ->
 	[].
 
 send_message2regprocess(Process,Message) ->
