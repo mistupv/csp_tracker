@@ -7,8 +7,7 @@ main([String]) ->
 	io:format("Process limit: ~p\n",[erlang:system_info(process_limit)]),
 	csp_tracker_loader:load(),
 	File = list_to_atom(String),  
-	MiliSecList = lists:seq(50000, 60000, 1000),
-	% MiliSecList = lists:seq(500, 20000, 500),
-	[csp_bench:bench_no_latex(File,'MAIN',MiliSec,50) 
+	MiliSecList = lists:seq(100, 3600, 100),
+	[csp_bench:bench_no_latex(File,'MAIN',MiliSec,100) 
 	 || MiliSec <- MiliSecList],
 	ok.
