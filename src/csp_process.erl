@@ -885,7 +885,7 @@ createDict([{in,Var}|TC],[Selected|TS],EE) when is_list(Var) ->
 createDict([{in,Var}|TC],[Selected|TS],EE) when is_atom(Var) ->
 	[{Var,Selected}|createDict(TC,TS,EE)];
 createDict([{in,_}|_],_,EE) ->
-	throw(lists:flatten(io_lib:format("Detected in channel without defined options when exececuting event ~p", [EE])));
+	throw(lists:flatten(io_lib:format("Detected an in-channel without defined options while executing event ~p", [EE])));
 createDict([{out,_}|TC],[_|TS],EE) ->
 	createDict(TC,TS,EE);
 createDict([],[],_) ->
