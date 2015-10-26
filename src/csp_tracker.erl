@@ -181,8 +181,8 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 											++ integer_to_list(TotalSlice) ++ " times.\n"),
 										FunAnswer(DigraphComplete, TotalSlice)
 								end,
-								io:format("*******************************\n");
-								io:format("~p\n", [TotalSlice]),
+								io:format("*******************************\n"),
+								io:format("~p\n", [TotalSlice]);
 							true -> 
 								case TotalSlice of 
 									0 ->
