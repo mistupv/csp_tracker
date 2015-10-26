@@ -182,6 +182,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 										FunAnswer(DigraphComplete, TotalSlice)
 								end,
 								io:format("*******************************\n");
+								io:format("~p\n", [TotalSlice]),
 							true -> 
 								case TotalSlice of 
 									0 ->
