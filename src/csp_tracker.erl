@@ -37,22 +37,27 @@ track_web(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 	track_common(File, FirstProcess,Options, fun(_, _) -> ok end).
 
 track_web_slice(Ex) ->
-	File = 'csp_tracker_temp.csp',
-	% File = 'ex1.csp',
-	{ok,[NodesDigraph, EdgesDigraph]} = file:consult("track.txt"),
-	Digraph = build_digraph(NodesDigraph, EdgesDigraph),
-	{Slice, Time} = get_slices_from_digraph(Digraph, Ex),
-	io:format("\nTotal of time generating slice:\t~p ms\n",[Time/1000]),
-	slice_from(Digraph, Slice),
-	 FirstProcess = 
- 	   case file:consult("first_process.txt") of
- 	   	{ok,[FirstProcess_]} -> 
- 	   		FirstProcess_;
- 	   	_ -> 
- 	   		'MAIN'
- 	   end,
-	get_slice_code(Digraph, Slice, FirstProcess, File),
-	ok.
+	try 
+		File = 'csp_tracker_temp.csp',
+		% File = 'ex1.csp',
+		{ok,[NodesDigraph, EdgesDigraph]} = file:consult("track.txt"),
+		Digraph = build_digraph(NodesDigraph, EdgesDigraph),
+		{Slice, Time} = get_slices_from_digraph(Digraph, Ex),
+		io:format("\nTotal of time generating slice:\t~p ms\n",[Time/1000]),
+		slice_from(Digraph, Slice),
+		 FirstProcess = 
+	 	   case file:consult("first_process.txt") of
+	 	   	{ok,[FirstProcess_]} -> 
+	 	   		FirstProcess_;
+	 	   	_ -> 
+	 	   		'MAIN'
+	 	   end,
+		get_slice_code(Digraph, Slice, FirstProcess, File),
+		ok
+	catch 
+		_:_ ->
+			io:format("Unable to generate the slice\n")
+	end.
 
 
 track_common(File, FirstProcess,Options, FunAnswer) ->
