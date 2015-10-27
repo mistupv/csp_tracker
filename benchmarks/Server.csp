@@ -1,0 +1,64 @@
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+-- Server.csp
+--
+-- AUTHORS:     M. Llorens, J. Oliver, J. Silva, S. Tamarit
+-- DATE:        2015
+-- PUBLISHED:   
+-- DESCRIPTION
+-- This example describes a server that accepts different requests from clients: 
+-- (1) request getvalue consults the serverÕs state; 
+-- (ii) request stop halts the server; 
+-- (iii) inc increases the state of the server; 
+-- (iv) dec decreases the state of the server; 
+-- (v) reset sets the state of the server to zero; and 
+-- (vi) setvalue sets the state of the server to a given value. 
+
+-- Four clients send in parallel their requests to the server. Clients INC 
+-- and DEC are supposed to check the serverÕs state before they change 
+-- it. If the state is zero, they should stop the server. 
+-- INC behaves correctly, but DEC is buggy, because it does not take into 
+-- account that other clients are concurrently changing the state of the 
+-- server.
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+
+-----------------------------------------------------------------------------------------
+-- SOURCE CODE 
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------
+channel req, val, inc, dec, reset, setvalue, getvalue, stop, last
+
+-- Several clients send requests to a server in parallel
+MAIN = (SERVER(1) [|{|req, val|}|] CLIENTS(10)) [|{|last|}|] last?x -> SKIP
+
+-- Four kinds of clients exist. They all are interleaved.
+CLIENTS(x) = DEC ||| INC ||| RESET ||| SET(x)
+
+-- The server has a state that can be changed by the clients' requests.
+SERVER(state) = 
+		(req.inc         -> SERVER(state + 1)) 
+	[] 	(req.dec        -> SERVER(state -1)) 
+	[] 	(req.reset      -> SERVER(0)) 
+	[] 	(req.setvalue -> val?state -> SERVER(state)) 
+	[]	(req.getvalue -> val!state -> SERVER(state))
+	[] 	(req.stop       -> last!state -> SKIP)
+
+-- Client INC increments the state of the server
+INC = req!getvalue -> val?current -> 
+	if (current == 0)
+	then req!stop -> SKIP
+	else req!inc -> INC
+
+-- Client DEC decrements the state of the server
+DEC = req!getvalue -> val?current -> DEC_TILL(current)
+
+DEC_TILL(0) = req!stop -> SKIP
+DEC_TILL(other) = req!dec -> DEC_TILL(other-1)
+
+-- Client RESET resets the state of the server to zero
+RESET = req!reset -> RESET
+
+-- Client SET(x) sets the state of the server to x
+SET(x) = req!setvalue -> val!x -> SET(x)
+-----------------------------------------------------------------------------------------

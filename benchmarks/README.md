@@ -19,4 +19,6 @@ CSP-Tracker: benchmarks collection
 
 [Read - Write](https://github.com/mistupv/csp_tracker/tree/master/benchmarks/ReadWrite.csp) by Ling Shi, Yang Liu, Jun Sun, Jin Song Dong and Gustavo Carvalho
 
+[Server](https://github.com/mistupv/csp_tracker/tree/master/benchmarks/Server.csp) by M. Llorens, J. Oliver, J. Silva, S. Tamarit
+
 [Traffic Lights](https://github.com/mistupv/csp_tracker/tree/master/benchmarks/Traffic.csp) by Javier Oliver
