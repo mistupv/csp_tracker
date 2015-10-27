@@ -694,7 +694,7 @@ external_choice_loop(PidList,PidParent,Renaming) ->
 	   {stopped,Pid} ->
 	   		case lists:member(Pid,PidList) of
 	   			true ->
-					NPidList = PidList -- Pid, 
+					NPidList = PidList -- [Pid], 
 					case NPidList of 
 						[] -> 
 							{stopped,get_self()};
