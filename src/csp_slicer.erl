@@ -58,11 +58,15 @@ get_actual_vertex(G, V) ->
 	end.
 
 get_slices(G, Selected) ->
-	OrderedSlices = lists:sort(get_all_slices(G)),
-	{_, SelectedVertex}  = lists:nth(Selected, OrderedSlices),
-	% io:format("All: ~w\n", [OrderedSlices]),
-	StartSet = lists:flatten(SelectedVertex),
-	lists:usort(calculate_slice(G, StartSet,[])).
+	try 	
+		OrderedSlices = lists:sort(get_all_slices(G)),
+		{_, SelectedVertex}  = lists:nth(Selected, OrderedSlices),
+		% io:format("All: ~w\n", [OrderedSlices]),
+		StartSet = lists:flatten(SelectedVertex),
+		lists:usort(calculate_slice(G, StartSet,[]))
+	catch 
+		_:_ -> io:format("Unable to generate the slice\n")
+	end.
 
 calculate_slice(G, [From | Tail], Slice) ->
 	{NList, NSlice} = 
