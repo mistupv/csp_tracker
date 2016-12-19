@@ -5,7 +5,11 @@
 
 -module(csp_tracker).
 
--export([track/1, track/2, track/3, track_web/3, track_web_slice/1]).
+-export([	
+			track/1, track/2, track/3, 
+			track_web/3, track_web_slice/1,
+			rewrite_renamings/2, preprocess_variables/1
+		]).
 
 
 -include("csp_tracker.hrl").
@@ -336,18 +340,24 @@ insert_processes([],_) ->
 	ok.
 	
 preprocess_variables() ->
-	{ok, IODevice} = file:open("output.txt",[read]),
+	preprocess_variables("").
+
+preprocess_variables(Dir) ->
+	{ok, IODevice} = file:open(Dir ++ "output.txt",[read]),
 	Read = read_file(IODevice),
 	file:close(IODevice),
 	Rewritten = csp_parsing:rewrite_vars(Read),
-	file:write_file("output_rewritten.txt", list_to_binary(Rewritten)).
+	file:write_file(Dir ++ "output_rewritten.txt", list_to_binary(Rewritten)).
 
 rewrite_renamings(File) ->
+	rewrite_renamings(File, "output1.csp").
+
+rewrite_renamings(File, FileOut) ->
 	{ok, IODevice} = file:open(File,[read]),
 	Read = read_file(IODevice),
 	file:close(IODevice),
 	Rewritten = separate_renamings(Read),
-	file:write_file("output1.csp", list_to_binary(Rewritten)).
+	file:write_file(FileOut, list_to_binary(Rewritten)).
 	
 separate_renamings([$[,$[|Tail]) ->
 	{SeparatedRenaming,NTail} = read_until_brackets(Tail,"[["),
