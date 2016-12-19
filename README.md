@@ -185,7 +185,7 @@ Then, we can run the tool as usual. After the track is created, the tool will as
 	
 	Which execution are you interested? 
 	
-According to the answer an output with the slice will be generated:
+According to the user's answer an output with the slice will be generated:
 	
 	Which execution are you interested? 2
 	Total of time generating slice: 0.176 ms
