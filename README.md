@@ -87,7 +87,7 @@ Then, suppose that we want to generate the track of '[ex3.csp](https://github.co
 
 After the execution, a file called 'track.dot' will be created in the directory. If you have installed [Graphviz](http://www.graphviz.org/), an equivalent pdf file will be created. Both files represent the track of the specification with a different format.
 
-If we are not interested in the internal events occurring during the execution, we can call the same function, but with an option indicating our preferences.
+If we are not interested in the internal events occurring during the execution, we can call the same function, but with the option 'only_externals' indicating this preference.
 
 	2> csp_tracker:track('examples/ex3.csp','MAIN',[only_externals]).
 	Creating the Erlang representation of the CSP file...
