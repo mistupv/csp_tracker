@@ -1,6 +1,6 @@
 -module(csp_parsing).
 
-%repasar que no quede ninguna sense utilitzar
+% repasar que no quede ninguna sense utilitzar
 -export([search_parameters/2,rewrite_vars/1,
          matching/2,replace_parameters/2,
          fake_process_name/1,

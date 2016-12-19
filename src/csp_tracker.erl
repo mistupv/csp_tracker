@@ -129,7 +129,8 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					end,					
 					%io:format("Timout: ~p\n",[Timeout]),
 					TimeBeforeExecuting = now(),
-					{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent} = csp_process:first(FirstProcess,Timeout,NoOutput),
+					{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent} = 
+						csp_process:first(FirstProcess,Timeout,NoOutput),
 					{NodesDigraph, EdgesDigraph} = DigraphContent,
 					% TimeBeforeTrack = now(),
 					Digraph = build_digraph(NodesDigraph, EdgesDigraph),
