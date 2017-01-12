@@ -8,7 +8,9 @@
 -export([	
 			track/1, track/2, track/3, 
 			track_web/3, track_web_slice/1,
-			rewrite_renamings/2, preprocess_variables/1
+			rewrite_renamings/2, preprocess_variables/1,
+			insert_processes/2, read_channels_info/1,
+			build_digraph/2
 		]).
 
 
@@ -388,13 +390,18 @@ read_file(IODevice,Acc) ->
 	     eof -> Acc;
 	     Data -> read_file(IODevice, Acc ++ Data)
 	end.
+
+read_channels_info() ->	
+	read_channels_info("").
 	
-read_channels_info() ->
-	{ok, IODevice} = file:open("output.pl",[read]),
+read_channels_info(Dir) ->
+	{ok, IODevice} = file:open(Dir ++ "output.pl",[read]),
 	Read = read_file(IODevice),
 	file:close(IODevice),
 	Lines = string:tokens(Read, "\n"),
 	get_channels_info(Lines).
+
+
 
 get_channels_info([[$',$c,$h,$a,$n,$n,$e,$l,$',$(,$' | Tail]|Pending]) ->
 	Searched = "','type'(",
