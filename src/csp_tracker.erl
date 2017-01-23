@@ -10,7 +10,7 @@
 			track_web/3, track_web_slice/1,
 			rewrite_renamings/2, preprocess_variables/1,
 			insert_processes/2, read_channels_info/1,
-			build_digraph/2
+			build_digraph/2, print_from_digraph/4
 		]).
 
 

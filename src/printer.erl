@@ -123,6 +123,10 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 					Pid!{info_graph, {State, G}},
 					finish_computation()
 			end;
+		{get_trace, Pid} ->
+			{_,_,Trace} = State,
+			Pid!{trace, Trace},
+			loop(Free,PrintInternals,LiveSaving,State);
 		stop -> 
 			finish_computation()
 	end.
