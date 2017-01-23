@@ -3,7 +3,8 @@
 -export([loop/2, nonid_loop/0, digraph_loop/0, 
 		string_arguments/1, add_to_file/2,
 		string_vertex_dot/4, string_edge_dot/3,
-		string_channels/1, string_list/1]).
+		string_channels/1, string_list/1,
+		extractFromTo/2]).
 
 -include("csp_tracker.hrl").
 
