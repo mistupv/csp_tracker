@@ -125,12 +125,11 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 					finish_computation()
 			end;
 		{info_graph_no_stop,Pid} ->
-			% Because it is only called when finished 
 			digraph!{get, self()},
 			receive
 				{digraph,G} ->
 					Pid!{info_graph, {State, G}},
-					loop(Free,PrintInternals,LiveSaving,State);
+					loop(Free,PrintInternals,LiveSaving,State)
 			end;
 		{get_trace, Pid} ->
 			{_,_,Trace} = State,
