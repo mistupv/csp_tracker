@@ -52,11 +52,23 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 				    end,
 			Pid!{printed,Event},
 			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
-		{unprint_last,Pid} -> 
-			    {InfoGraph,G,Trace} = State,
-			    NTrace = 
-				    lists:droplast(Trace),
+		{unprint_last, Pid} -> 
+			{InfoGraph,G,Trace} = State,
+		    NTrace = 
+			    lists:droplast(lists:droplast(Trace)),
 			Pid!unprinted_last,
+			% io:format("Trace: ~p\nNTrace: ~p\n", [Trace, NTrace]),
+			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
+		{unprint_last_from, Events, Pid} -> 
+			{InfoGraph,G,Trace} = State,
+		    NTraceRev0 = 
+			    lists:reverse(Trace),
+			NTraceRev = 
+				remove_event_from(NTraceRev0, Events),
+			NTrace = 
+				lists:reverse(NTraceRev),
+			Pid!unprinted_last,
+			% io:format("Trace: ~p\nNTrace: ~p\n", [Trace, NTrace]),
 			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
 %		{no_print,Event,Pid} -> 
 %			Pid!{no_printed,Event,io_lib:format("~p\n",[Event])},
@@ -426,6 +438,18 @@ string_channels([{'inGuard',_,List}|Tail]) ->
 string_channels([Other|Tail]) ->
 	io_lib:format("~p", [Other]) ++string_channels(Tail);
 string_channels([]) -> "".
+
+remove_event_from([], _) -> 
+	[];
+remove_event_from([10|T], Events) -> 
+	[10 | remove_event_from(T, Events)];
+remove_event_from([E|T], Events) -> 
+	case lists:member(list_to_atom(E), Events) of 
+		true -> 
+			tl(T);
+		false -> 
+			[E | remove_event_from(T, Events)]
+	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
