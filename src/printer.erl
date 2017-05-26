@@ -52,6 +52,12 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 				    end,
 			Pid!{printed,Event},
 			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
+		{unprint_last,Pid} -> 
+			    {InfoGraph,G,Trace} = State,
+			    NTrace = 
+				    lists:droplast(Trace),
+			Pid!unprinted_last,
+			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
 %		{no_print,Event,Pid} -> 
 %			Pid!{no_printed,Event,io_lib:format("~p\n",[Event])},
 %			loop(Free);
