@@ -154,12 +154,33 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 			Pid!{trace, Trace},
 			loop(Free,PrintInternals,LiveSaving,State);
 		stop -> 
-			finish_computation()
+			finish_computation();
+		{stop, Pid} -> 
+			finish_computation(),
+			Pid!stopped
 	end.
 	
 finish_computation() ->
-	nonid!stop,
-	digraph!stop,
+	try 
+		nonid!{stop, self()},
+		receive 
+			stopped -> 
+				ok
+		end
+	catch
+		_:_ -> 
+			ok
+	end,
+	try
+		digraph!{stop, self()},
+		receive 
+			stopped -> 
+				ok
+		end
+	catch
+		_:_ -> 
+			ok 
+	end,
 	ok.
 
 print_event(Event) ->
@@ -463,6 +484,9 @@ nonid_loop(Fresh) ->
 			Pid!{idano,list_to_atom("a"++integer_to_list(Fresh))},
 			nonid_loop(Fresh+1);
 		stop ->
+			ok;
+		{stop, Pid} ->
+			Pid!stopped,
 			ok
 	end.
 
@@ -484,6 +508,9 @@ digraph_loop(G = {N, E}) ->
 		{add, edge, V1, V2, Label} ->
 			digraph_loop({N, [{V1, V2, Label} | E]});
 		stop ->
+			ok;
+		{stop, Pid} ->
+			Pid!stopped,
 			ok
 	end.
  
