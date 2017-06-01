@@ -135,11 +135,11 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 %			Pid ! {printed_graph,Graph,IdAno},
 %			loop(Free,PrintInternals);
 		{info_graph,Pid} ->
-			% Because it is only called when finished 
 			digraph!{get, self()},
 			receive
 				{digraph,G} ->
 					Pid!{info_graph, {State, G}},
+					% Because it is only called when finished 
 					finish_computation()
 			end;
 		{info_graph_no_stop,Pid} ->
@@ -319,6 +319,8 @@ create_graph({renamed_event,Executed,{prefix,SPANevent,Channels,Event,_,SPANarro
 	% end;
 create_graph({'|~|',_,_,SPAN},Free) ->
 	{string_vertex(Free,"|~|",SPAN),Free+1,Free};
+create_graph({'|~|',_,_,Selected,SPAN},Free) ->
+	{string_vertex(Free,"|~|." ++ atom_to_list(Selected),SPAN),Free+1,Free};
 create_graph({'[]',_,_,SPAN},Free) ->
 	{string_vertex(Free,"[]",SPAN),Free+1,Free};
 create_graph({'ifte',Condition,_,_,SPAN1,_,_},Free) ->
