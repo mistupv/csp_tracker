@@ -120,7 +120,7 @@ Some specifications produce a deadlock, and our tool will stop their execution a
 	<- STOPPED_TRACE (deadlock)
 
 
-Finally, when the specification produces an infinite computation, we can define a timeout to stop automatically this execution. This is the case of '[ex6.csp](https://github.com/mistupv/csp_tracker/blob/master/examples/ex6.csp)'. Assume that we want to execute it during 5 miliseconds.
+Finally, in those cases when the specification produces an infinite computation, we can define a timeout to stop automatically this execution. This is the case of '[ex6.csp](https://github.com/mistupv/csp_tracker/blob/master/examples/ex6.csp)'. Assume that we want to execute it during 5 miliseconds.
 
 
 	4> csp_tracker:track('examples/ex6.csp','MAIN',[only_externals,5]).
