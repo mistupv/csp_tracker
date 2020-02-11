@@ -265,12 +265,12 @@ create_graph_string(Process,Free,Parent) ->
 	
 create_graph_string_no_ided({prefix,SPANevent,Channels,Event,_,SPANarrow},Parent) ->
 	nonid!{get,self()},
-	receive
-		{idano,IdA} -> ok
+	IdA = receive
+		{idano,IdA} -> IdA
 	end,
 	nonid!{get,self()},
-	receive
-		{idano,IdB} -> ok
+	IdB = receive
+		{idano,IdB} -> IdB
 	end,
 	%io:format("IdA: ~p\nIdB: ~p\n",[IdA,IdB]),
 	SProcess = 
@@ -397,10 +397,11 @@ string_vertex_dot(Id,Label,SPAN, Slice) ->
 		end,
 	{FL,FC,TL,TC} = extractFromTo(SPAN,Label),
 	%string_vertex(Id,Label).
-	integer_to_list(Id) ++ " " ++ "[shape=ellipse, label=\""
-	++ integer_to_list(Id) ++ " .- " ++ Label 
-	++ "\\nfrom (" ++ integer_to_list(FL) ++ "," ++ integer_to_list(FC) 
-	++ ") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")\\l\""
+	% label = "{{ $id | $label } | { ($FL, $FC) to ($TL, $TC) }}"
+	integer_to_list(Id) ++ " " ++ "[shape=record, label=\"{"
+	++ integer_to_list(Id) ++ " | " ++ Label
+	++ "} | {(" ++ integer_to_list(FL) ++ "," ++ integer_to_list(FC)
+	++ ") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")}\""
 	++ Style ++ "];\n".
 
 string_edge_dot(From, To, "control") ->
@@ -408,7 +409,7 @@ string_edge_dot(From, To, "control") ->
 	++ " [color=black, penwidth=3];\n";
 string_edge_dot(NodeA, NodeB, "sync") ->
 	integer_to_list(NodeA) ++ " -> " ++ integer_to_list(NodeB)
-	++ "[style=dotted, color=red, arrowhead=none,constraint=false];\n".
+	++ "[style=dashed, penwidth=3, color=red, arrowhead=none,constraint=false];\n".
 	
 string_list([Event]) -> 
 	atom_to_list(Event);
@@ -465,13 +466,13 @@ string_channels([]) -> "".
 remove_event_from([], _) -> 
 	[];
 remove_event_from([10|T], Events) -> 
-	[10 | remove_event_from(T, Events)];
+	[10 | remove_event_from(T, Events)];
 remove_event_from([E|T], Events) -> 
 	case lists:member(list_to_atom(E), Events) of 
 		true -> 
 			tl(T);
 		false -> 
-			[E | remove_event_from(T, Events)]
+			[E | remove_event_from(T, Events)]
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

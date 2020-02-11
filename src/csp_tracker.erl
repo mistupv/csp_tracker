@@ -254,7 +254,8 @@ print_from_digraph(Digraph, NameFile, Slice, NoOutput) ->
 				printer:string_edge_dot(V1, V2, Type)
 			end || ED <- digraph:edges(Digraph)]),
 	file:write_file(NameFile ++ ".dot", 
-		list_to_binary("digraph " ++ NameFile ++ " {" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
+		list_to_binary("digraph " ++ NameFile ++ " {\n" ++
+			"rankdir = LR;\n" ++ NodesSlice ++ EdgesSlice ++ "\n}")),
 	case NoOutput of 
 		true -> 
 			ok;
