@@ -101,7 +101,7 @@ get_enum([$'|Tail],Acc) ->
 	{AtomStr,NTail} = untill_colon(Tail),
 	Atom = list_to_atom(AtomStr),
 	get_enum(NTail,[Atom|Acc]);
-get_enum([Other|Tail],Acc) ->
+get_enum([_Other|Tail],Acc) ->
 	% io:format("Other: ~p\n",[Other]),
 	{Acc,Tail};
 get_enum([],Acc) ->

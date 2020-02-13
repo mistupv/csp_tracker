@@ -27,7 +27,7 @@ first(FirstProcess,Timeout,NoOutput) ->
 				InfoGraph_
 		after 
 			1000 -> 
-				{{{0,0,0,now()},"",""},{[],[]}}
+				{{{0,0,0,erlang:monotonic_time()},"",""},{[],[]}}
 		end,
 	send_message2regprocess(printer,stop),
 	InfoGraph.
@@ -260,8 +260,7 @@ prefixing_loop(Pid,Prefixing,Process,GraphParent,Message,Channels) ->
 
 %Controlar que no quede una unica crida a esta funció	
 process_choice(PA,PB,PrintTau) ->
-	random:seed(now()),
-	Selected = random:uniform(2),
+	Selected = rand:uniform(2),
 	case PrintTau of
 	     true ->
 		Event = list_to_atom("   tau -> Internal Choice. Branch "++integer_to_list(Selected)),
@@ -311,7 +310,7 @@ parallelism_loop(PidA,PidB,SyncEvents,PidParent,Finished,Renaming,TemporalGraphs
 	     		  	% io:format("A la escolta SP ~p\n",[get_self()]),
 					receive
 					   {finished_skip,SPANSKIP,GraphParentSkip,PidSkip,PidAorB,true} -> 
-					   		Send = 
+					   		_Send =
 						      case length([Fin || Fin = {_,NodesFinished} <- Finished, 
 						      						NodesFinished =/=[]]) of
 							   1 -> 
@@ -643,7 +642,7 @@ process_external_choice(PList0,PidParent,GraphParent,Renaming) ->
 	PList = 
 	% From: http://stackoverflow.com/a/8820501/4162959
 		[X || {_,X} <- lists:sort(
-			[ {random:uniform(), P} || P <- PList0])],
+			[ {rand:uniform(), P} || P <- PList0])],
 	PidList = 
 		[spawn(csp_process,loop,[P,get_self(),GraphParent,[],[]]) 
 	 	 || P <- PList],
@@ -759,9 +758,8 @@ finish_external_choice(NodesFinished) ->
 
 	
 rename_event(Event,[List|TailRenaming]) ->
-	random:seed(now()),
-	ShuffledList = 
-		[X || {_,X} <- lists:sort([ {random:uniform(), N} || N <- List])],
+	ShuffledList =
+		[X || {_,X} <- lists:sort([ {rand:uniform(), N} || N <- List])],
 	rename_event(rename_event_list(Event,ShuffledList),TailRenaming);
 % rename_event(Event,[_|TailRenaming]) ->
 % 	rename_event(Event,TailRenaming);
@@ -831,8 +829,7 @@ create_temporal_graph(Pid,{TGraphA,TGraphB},Prefixing,GraphParent,PidA,PidB) ->
 	end.	
 	
 random_branches(PA,PB) ->
-	random:seed(now()),
-	Selected = random:uniform(2),
+	Selected = rand:uniform(2),
 	case Selected of
 		1 -> {PA,PB};
 		2 -> {PB,PA}
@@ -842,8 +839,7 @@ select_channels([{out,Channel}|Tail],Event) ->
 	% io:format("Event: ~p\nChannel: ~p\n",[Event,Channel]),	
 	[Channel|select_channels(Tail,Event)];
 select_channels([{'inGuard',_,ChannelsList}|Tail],Event) ->
-        random:seed(now()),
-        Selected = random:uniform(length(ChannelsList)),
+	Selected = rand:uniform(length(ChannelsList)),
 	[lists:nth(Selected,ChannelsList)|select_channels(Tail,Event)];
 select_channels([{in,_}|Tail],Event) ->
 	send_message2regprocess(codeserver,{ask_channel,Event,get_self()}),
@@ -863,7 +859,7 @@ select_channels([{in,_}|Tail],Event) ->
 		end,
 	% io:format("Channels: ~p\n",[Channels]),
 	Channels ++ select_channels(NTail,Event);
-select_channels(Other = [_|_],_) ->
+select_channels(_Other = [_|_],_) ->
 	% io:format("Other type of channel: ~p\n",[Other]),
 	[];
 select_channels([],_) ->

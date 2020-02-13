@@ -87,7 +87,7 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 				    false ->
 				    	G ++ StringSyncEdge
 				 end,
-		     loop(Free,PrintInternals,LiveSaving,{{N,E,S + 1,now()},NG,Trace});
+		     loop(Free,PrintInternals,LiveSaving,{{N,E,S + 1,erlang:monotonic_time()},NG,Trace});
 		{create_graph,Process,Parent,Pid} ->
 			{Graph,NFree,NParent,TotalCreated} = create_graph_string(Process,Free,Parent),
 			{{N,E,S,_},G,Trace} = State,
@@ -113,10 +113,10 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 					2 -> {N + 1,E + 1};
 					3 -> {N + 2,E + 1}
 				end,
-			loop(NFree,PrintInternals,LiveSaving,{{NN,NE,S,now()},NG,Trace});
+			loop(NFree,PrintInternals,LiveSaving,{{NN,NE,S,erlang:monotonic_time()},NG,Trace});
 		{create_graph_no_ided,Process,Parent,Pid} ->
 		    %io:format("~p\n~p\n",[Process,Parent]),
-			{Graph,IdAno} = create_graph_string_no_ided(Process,Parent),
+			{_Graph,IdAno} = create_graph_string_no_ided(Process,Parent),
 			%io:format("{Parent,Free,NFree}: ~p\n",[{Parent,Free,NFree}]),
 			% add_to_file("//-> "++atom_to_list(IdAno)++"\n"
 			%             ++Graph++
@@ -202,36 +202,36 @@ add_to_file(String,NoOutput) ->
 	end.
 
 	
-remove_from_file(String1,String2) ->
-	{ok, IODevice} = file:open("track.dot",[read]),
-	Read = read_file(IODevice),
-	file:close(IODevice),
-	file:write_file("track.dot", 
-	                list_to_binary(remove_from_graph(Read,String1,String2,"")++"}")),
-	os:cmd("dot -Tpdf track.dot > track.pdf").
+%%remove_from_file(String1,String2) ->
+%%	{ok, IODevice} = file:open("track.dot",[read]),
+%%	Read = read_file(IODevice),
+%%	file:close(IODevice),
+%%	file:write_file("track.dot",
+%%	                list_to_binary(remove_from_graph(Read,String1,String2,"")++"}")),
+%%	os:cmd("dot -Tpdf track.dot > track.pdf").
 	
 	
-remove_from_graph([Char|Tail],String1,String2,Acc) ->
-	case Char of
-	     10 -> 
-	     	case Acc of
-	     	     String1 -> "\n"++remove_from_graph(Tail,String2,"");
-	     	     _ -> Acc ++ "\n" ++ remove_from_graph(Tail,String1,String2,"")
-	     	end;
-	     _ -> 
-	     	remove_from_graph(Tail,String1,String2,Acc++[Char])
-	end.
+%%remove_from_graph([Char|Tail],String1,String2,Acc) ->
+%%	case Char of
+%%	     10 ->
+%%	     	case Acc of
+%%	     	     String1 -> "\n"++remove_from_graph(Tail,String2,"");
+%%	     	     _ -> Acc ++ "\n" ++ remove_from_graph(Tail,String1,String2,"")
+%%	     	end;
+%%	     _ ->
+%%	     	remove_from_graph(Tail,String1,String2,Acc++[Char])
+%%	end.
 	
-remove_from_graph([Char|Tail],String,Acc) ->
-	case Char of
-	     10 -> 
-	     	case Acc of
-	     	     String -> Tail;
-	     	     _ -> remove_from_graph(Tail,String,"")
-	     	end;
-	     _ -> 
-	     	remove_from_graph(Tail,String,Acc++[Char])
-	end.
+%%remove_from_graph([Char|Tail],String,Acc) ->
+%%	case Char of
+%%	     10 ->
+%%	     	case Acc of
+%%	     	     String -> Tail;
+%%	     	     _ -> remove_from_graph(Tail,String,"")
+%%	     	end;
+%%	     _ ->
+%%	     	remove_from_graph(Tail,String,Acc++[Char])
+%%	end.
 	
 read_file(IODevice) -> 
 	read_file(IODevice,[],[]).
@@ -265,12 +265,12 @@ create_graph_string(Process,Free,Parent) ->
 	
 create_graph_string_no_ided({prefix,SPANevent,Channels,Event,_,SPANarrow},Parent) ->
 	nonid!{get,self()},
-	IdA = receive
-		{idano,IdA} -> IdA
+	receive
+		{idano,IdA} -> ok
 	end,
 	nonid!{get,self()},
-	IdB = receive
-		{idano,IdB} -> IdB
+	receive
+		{idano,IdB} -> ok
 	end,
 	%io:format("IdA: ~p\nIdB: ~p\n",[IdA,IdB]),
 	SProcess = 
@@ -398,18 +398,18 @@ string_vertex_dot(Id,Label,SPAN, Slice) ->
 	{FL,FC,TL,TC} = extractFromTo(SPAN,Label),
 	%string_vertex(Id,Label).
 	% label = "{{ $id | $label } | { ($FL, $FC) to ($TL, $TC) }}"
-	integer_to_list(Id) ++ " " ++ "[shape=record, label=\"{"
-	++ integer_to_list(Id) ++ " | " ++ Label
-	++ "} | {(" ++ integer_to_list(FL) ++ "," ++ integer_to_list(FC)
-	++ ") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")}\""
+	integer_to_list(Id) ++ " " ++ "[shape=none, label=<<table PORT=\"p\"><tr><td>"
+	++ integer_to_list(Id) ++ "</td><td>" ++ Label
+	++ "</td></tr><tr><td colspan=\"2\">(" ++ integer_to_list(FL) ++ "," ++ integer_to_list(FC)
+	++ ") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")</td></tr></table>>"
 	++ Style ++ "];\n".
 
 string_edge_dot(From, To, "control") ->
-	integer_to_list(From) ++ " -> " ++ integer_to_list(To)
-	++ " [color=black, penwidth=3];\n";
+	integer_to_list(From) ++ ":p -> " ++ integer_to_list(To)
+	++ ":p [color=black, penwidth=3];\n";
 string_edge_dot(NodeA, NodeB, "sync") ->
-	integer_to_list(NodeA) ++ " -> " ++ integer_to_list(NodeB)
-	++ "[style=dashed, penwidth=3, color=red, arrowhead=none,constraint=false];\n".
+	integer_to_list(NodeA) ++ ":p -> " ++ integer_to_list(NodeB)
+	++ ":p [style=dashed, penwidth=3, color=red, arrowhead=none, constraint=false];\n".
 	
 string_list([Event]) -> 
 	atom_to_list(Event);

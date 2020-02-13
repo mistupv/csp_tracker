@@ -4,7 +4,6 @@
 
 
 loop(Processes) ->
-	random:seed(now()),
 	receive
 		{ask_code,Process,Arguments,Pid} -> 
 			AllProcesses =  ets:lookup(Processes, Process),
@@ -22,7 +21,7 @@ loop(Processes) ->
 		{ask_channel,Channel,Pid} -> 
 			{Channel,Types} =  hd(ets:lookup(Processes, Channel)),
 			SelectedChannels = 
-				[begin lists:nth(random:uniform(length(T)),T) end|| T <- Types],
+				[begin lists:nth(rand:uniform(length(T)),T) end|| T <- Types],
 			% io:format("Channel: ~p\nTypes: ~p\nSelectedChannels: ~p\n",[Channel,Types, SelectedChannels]),
 			Pid!{channel_reply,SelectedChannels},
 			loop(Processes);
