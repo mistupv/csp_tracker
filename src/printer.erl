@@ -399,7 +399,7 @@ string_vertex_dot(Id,Label,SPAN, Slice) ->
 	%string_vertex(Id,Label).
 	% label = "{{ $id | $label } | { ($FL, $FC) to ($TL, $TC) }}"
 	integer_to_list(Id) ++ " " ++ "[shape=none, label=<<table PORT=\"p\"><tr><td>"
-	++ integer_to_list(Id) ++ "</td><td>" ++ Label
+	++ integer_to_list(Id) ++ "</td><td>" ++ escape_html(Label)
 	++ "</td></tr><tr><td colspan=\"2\">(" ++ integer_to_list(FL) ++ "," ++ integer_to_list(FC)
 	++ ") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")</td></tr></table>>"
 	++ Style ++ "];\n".
@@ -519,3 +519,8 @@ digraph_loop(G = {N, E}) ->
  
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+escape_html(Text) ->
+	T1 = re:replace(Text, "&", "\\&amp;", [{return,list}]),
+	T2 = re:replace(T1, ">", "\\&gt;", [{return,list}]),
+	T3 = re:replace(T2, "<", "\\&lt;", [{return,list}]),
+	re:replace(T3, "\\\\", "\\&#92;", [{return,list}]).
