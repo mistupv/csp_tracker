@@ -11,7 +11,7 @@ run_linux() {
 run_docker() {
     echo "Running createoutput.sh through docker"
     #docker run -t -v $PWD:/mnt ubuntu:20.04 /bin/bash -c "cd /mnt && ./createoutput.sh $1"
-    docker run -t -v $PWD:/mnt debian:10-slim /bin/bash -c "cd /mnt && ./createoutput.sh $1"
+    docker run -t -v $PWD:/mnt --rm debian:10-slim /bin/bash -c "cd /mnt && ./createoutput.sh $1"
 }
 
 unameOut="$(uname -s)"
