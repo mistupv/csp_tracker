@@ -1,8 +1,3 @@
-%   c(csptrack),c(codeserver),c(printer),c(csp_process),c(csp_parsing).
-%   csptrack:track([]).
-%   c(csptrack),c(codeserver),c(printer),c(csp_process),c(csp_parsing),csptrack:track([]).
-%   csptrack:track([only_externals]).
-
 -module(csp_tracker).
 
 -export([	
@@ -12,7 +7,6 @@
 			insert_processes/2, read_channels_info/1,
 			build_digraph/2, print_from_digraph/4
 		]).
-
 
 -include("csp_tracker.hrl").
 
@@ -31,7 +25,6 @@ track(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 				io:format("\nTotal of time generating slice:\t~p ms\n",[Time/1000]),
 				slice_from(Digraph, Slice),
 				get_slice_code(Digraph, Slice, FirstProcess, File),
-				% io:format("~p\n", [Lines]),
 				ok;
 			(_, _) -> 
 				ok
@@ -45,7 +38,6 @@ track_web(File,FirstProcess,Options) when is_atom(File) and is_list(Options) ->
 track_web_slice(Ex) ->
 	try 
 		File = 'csp_tracker_temp.csp',
-		% File = 'ex1.csp',
 		{ok,[NodesDigraph, EdgesDigraph]} = file:consult("track.txt"),
 		Digraph = build_digraph(NodesDigraph, EdgesDigraph),
 		{Slice, Time} = get_slices_from_digraph(Digraph, Ex),
@@ -70,8 +62,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 	rewrite_renamings(atom_to_list(File)),
 	NoOutput = lists:member(no_output,Options),
 	TimeBeforeConversion = erlang:monotonic_time(),
-	OutputConversion = 
-		os:cmd("./createoutput.sh output1.csp"),
+	OutputConversion = os:cmd("./createoutput.sh output1.csp"),
 	preprocess_variables(),
 	TimeAfterConversion = erlang:monotonic_time(),
 	case NoOutput of 
@@ -88,50 +79,36 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 		{ok,ProcessList} ->
 			% io:format("~p\n", [ProcessList]),
 			case ProcessList of
-			     [[]|_] -> 
-			     	io:format("Correct the syntax error before to proceed\n"),
-			     	result_for_error();
-			     [_|_] -> 
+				[[]|_] ->
+					io:format("Correct the syntax error before to proceed\n"),
+					result_for_error();
+				[_|_] ->
 					file:write_file("track.dot", list_to_binary("digraph csp_track {\n}")),
 					Processes = ets:new(processes,[bag]),
 					insert_processes(hd(ProcessList),Processes),
 					ChannelInfo_ = read_channels_info(),
-					ChannelInfo = 
-						[{Channel, csp_parsing:extract_type(Type)} 
-						 || {Channel, Type} <- ChannelInfo_],
-					% io:format("~p\n",[ChannelInfo]),
+					ChannelInfo = [{Channel, csp_parsing:extract_type(Type)}
+						|| {Channel, Type} <- ChannelInfo_],
 					insert_processes(ChannelInfo,Processes),
-			%		io:format("Processes: ~p\n",
-			%		          [[ PN || {PN,_} <- ets:tab2list(Processes)]--
-			%		           [ PN || {PN,_} <- ets:tab2list(Processes),
-			%		                   csp_parsing:fake_process_name(atom_to_list(PN))]]),
-					case lists:member(codeserver,registered()) of
-					     true -> ok;
-					     false -> 
-					     	register(codeserver, spawn(codeserver,loop,[Processes]))
-					end,
-					Timeout = 
-					  case [Opt || Opt <- Options, is_number(Opt)] of
-					       [TO|_] -> TO;
-					       _ -> infinity
+					csp_util:register_once(codeserver, fun() -> codeserver:loop(Processes) end),
+					Timeout =
+						case [Opt || Opt <- Options, is_number(Opt)] of
+							[TO|_] -> TO;
+							_ -> infinity
 					  end,
-					case lists:member(printer,registered()) of
-					     true -> ok;
-					     false -> 
-					     	register(printer, 
-					         spawn(printer,loop,
-					            [case lists:member(only_externals,Options) of
-							     true -> only_externals;
-							     false -> all
-					     		end,
-					     		case Timeout of
-							     infinity -> true;
-							     _ -> false
-					     		end]))
-					end,					
+					printer:start_and_register_once(
+						case lists:member(only_externals,Options) of
+							true -> only_externals;
+							false -> all
+						end,
+						case Timeout of
+							infinity -> true;
+							_ -> false
+						end
+					),
 					%io:format("Timout: ~p\n",[Timeout]),
 					TimeBeforeExecuting = erlang:monotonic_time(),
-					{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent} = 
+					{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent} =
 						csp_process:first(FirstProcess,Timeout,NoOutput),
 					{NodesDigraph, EdgesDigraph} = DigraphContent,
 					% TimeBeforeTrack = erlang:monotonic_time(),
@@ -143,7 +120,6 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 						infinity -> 
 							ok;
 						_ -> 
-							% printer:add_to_file(G,NoOutput),
 							print_from_digraph(Digraph, "track", [], NoOutput),
 							case NoOutput of 
 								false ->
@@ -207,7 +183,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 										TimeCal + TimeGen
 								end
 						end,
-					csp_process:send_message2regprocess(codeserver, stop),
+					csp_util:stop(codeserver),
 					{Result1, Result2};
 				_ ->
 					result_for_error()
@@ -331,10 +307,7 @@ build_digraph(NodesDigraph, EdgesDigraph) ->
 insert_processes([{}],_) ->
 	ok;
 insert_processes([{ProcessName0, ProcessBody, SPAN}|Tail],Processes) ->
-	%NProcessBody = csp_parsing:replace_fake_processes(ProcessBody,Processes),
-	{ProcessName,Parameters} = 
-		csp_parsing:search_parameters(atom_to_list(ProcessName0),[]),
-	%io:format("Name: ~p  Parameters: ~p\n",[ProcessName,Parameters]),
+	{ProcessName,Parameters} = csp_parsing:search_parameters(atom_to_list(ProcessName0),[]),
 	ets:insert(Processes,{ProcessName,{{Parameters,ProcessBody},SPAN}}),
 	insert_processes(Tail,Processes);
 insert_processes([{Channel,Type}|Tail],Processes) ->
@@ -363,7 +336,7 @@ rewrite_renamings(File, FileOut) ->
 	Rewritten = separate_renamings(Read),
 	file:write_file(FileOut, list_to_binary(Rewritten)).
 	
-separate_renamings([$[,$[|Tail]) ->
+separate_renamings("[[" ++ Tail) ->
 	{SeparatedRenaming,NTail} = read_until_brackets(Tail,"[["),
 	SeparatedRenaming ++ separate_renamings(NTail);
 separate_renamings([Char|Tail]) ->
@@ -371,10 +344,10 @@ separate_renamings([Char|Tail]) ->
 separate_renamings([]) ->
 	[].
 
-read_until_brackets([$,|Tail],Acc) ->
+read_until_brackets("," ++ Tail,Acc) ->
 	{NAcc,NTail} = read_until_brackets(Tail,"[["),
 	{Acc ++ "]]" ++ NAcc,NTail};
-read_until_brackets([$],$]|Tail],Acc) ->
+read_until_brackets("]]" ++ Tail,Acc) ->
 	{Acc ++ "]]",Tail};
 read_until_brackets([$ |Tail],Acc) ->
 	read_until_brackets(Tail,Acc);
@@ -404,7 +377,7 @@ read_channels_info(Dir) ->
 
 
 
-get_channels_info([[$',$c,$h,$a,$n,$n,$e,$l,$',$(,$' | Tail]|Pending]) ->
+get_channels_info(["channel (" ++ Tail|Pending]) ->
 	Searched = "','type'(",
 	PositionToCut = string:str(Tail, Searched),
 	Name = string:sub_string(Tail, 1, PositionToCut - 1),

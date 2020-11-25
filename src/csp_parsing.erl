@@ -7,44 +7,44 @@
          extract_type/1]).
 
 
-search_parameters([$(|Tail],Acc) ->
+search_parameters("(" ++ Tail,Acc) ->
 	Parameters = extract_expressions(Tail),
 	{list_to_atom(Acc),Parameters};
 search_parameters([Char|Tail],Acc) ->
 	search_parameters(Tail,Acc++[Char]);
 search_parameters([],Acc) -> {list_to_atom(Acc),[]}.
 
-extract_expressions([$i,$n,$t,$(|NTail]) ->
+extract_expressions("int(" ++ NTail) ->
 	{Num, NNtail_} = read_whole_var(NTail),
-	[$)|NNtail] = NNtail_,
+	")" ++ NNtail = NNtail_,
 	case NNtail of
-	     [$,|TailVars] -> 
-	     	[list_to_integer(Num)|extract_expressions(TailVars)];
-	     [$)|_] ->
-	     	[list_to_integer(Num)];
-	     [_|TailVars] ->
-	     	extract_expressions(TailVars)
+		"," ++ TailVars ->
+			[list_to_integer(Num)|extract_expressions(TailVars)];
+		")" ++ _ ->
+			[list_to_integer(Num)];
+		[_|TailVars] ->
+			extract_expressions(TailVars)
 	end;
-extract_expressions([$v,$a,$r,$_|NTail]) ->
+extract_expressions("var_" ++ NTail) ->
 	{Var, NNtail} = read_whole_var(NTail),
 	case NNtail of
-	     [$,|TailVars] -> 
-	     	[list_to_atom("var_"++Var)|extract_expressions(TailVars)];
-	     [$)|_] ->
-	     	[list_to_atom("var_"++Var)];
-	     [_|TailVars] ->
-	     	extract_expressions(TailVars)
+		"," ++ TailVars ->
+			[list_to_atom("var_"++Var)|extract_expressions(TailVars)];
+		")" ++ _ ->
+			[list_to_atom("var_"++Var)];
+		[_|TailVars] ->
+			extract_expressions(TailVars)
 	end;
 extract_expressions([]) -> [].
 
 extract_type("'dotUnitType'") ->
 	[];
-extract_type([$',$d,$o,$t,$T,$u,$p,$l,$e,$T,$y,$p,$e,$',$(,$[|Tail]) ->
+extract_type("'dotTupleType'([" ++ Tail) ->
 	get_type_tokens(Tail);
 extract_type(_) ->
 	[].
 
-get_type_tokens([$',$s,$e,$t,$F,$r,$o,$m,$T,$o,$',$(|Tail]) ->
+get_type_tokens("'setFromTo'(" ++ Tail) ->
 	{Ini,Fin,NTail} = get_ini_fin(Tail,1,-1),
 	Type = 
 		try 
@@ -53,7 +53,7 @@ get_type_tokens([$',$s,$e,$t,$F,$r,$o,$m,$T,$o,$',$(|Tail]) ->
 			_:_ -> []
 		end,
 	[Type|get_type_tokens(NTail)];
-get_type_tokens([$,,$',$s,$e,$t,$F,$r,$o,$m,$T,$o,$',$(|Tail]) ->
+get_type_tokens(",'setFromTo'(" ++ Tail) ->
 	{Ini,Fin,NTail} = get_ini_fin(Tail,1,-1),
 	Type = 
 		try 
@@ -62,11 +62,10 @@ get_type_tokens([$,,$',$s,$e,$t,$F,$r,$o,$m,$T,$o,$',$(|Tail]) ->
 			_:_ -> []
 		end,
 	[Type|get_type_tokens(NTail)];
-get_type_tokens([$',$s,$e,$t,$E,$n,$u,$m,$',$(,$[|Tail]) ->
+get_type_tokens("'setEnum'([" ++ Tail) ->
 	{Type,NTail} = get_enum(Tail,[]),
-	% io:format("Type: ~p\n",[Type]),
 	[Type|get_type_tokens(NTail)];
-get_type_tokens([$,,$',$s,$e,$t,$E,$n,$u,$m,$',$(,$[|Tail]) ->
+get_type_tokens(",'setEnum'([" ++ Tail) ->
 	{Type,NTail} = get_enum(Tail,[]),
 	[Type|get_type_tokens(NTail)];
 get_type_tokens([_|_]) -> 
@@ -76,11 +75,11 @@ get_type_tokens([]) ->
 
 % ['setFromTo'('int'(0),'int'(2)),'setFromTo'('int'(0),'int'(2)),'setFromTo'('int'(0),'int'(2)),'setFromTo'('int'(0),'int'(2))])
 
-get_ini_fin([$',$i,$n,$t,$',$(|Tail],_,Fin) ->
+get_ini_fin("'int'(" ++ Tail,_,Fin) ->
 	{InitialNumberStr,NTail} = untill_bracket(Tail),
 	InitialNumber = list_to_integer(InitialNumberStr),
 	get_ini_fin(NTail,InitialNumber,Fin);
-get_ini_fin([$,,$',$i,$n,$t,$',$(|Tail],Ini,_) ->
+get_ini_fin(",'int'(" ++ Tail,Ini,_) ->
 	{FinalNumberStr,NTail} = untill_bracket(Tail),
 	FinalNumber = list_to_integer(FinalNumberStr),
 	get_ini_fin(NTail,Ini,FinalNumber);
@@ -89,20 +88,19 @@ get_ini_fin([_|Tail],Ini,Fin) ->
 get_ini_fin([],Ini,Fin) ->
 	{Ini,Fin,[]}.
 
-get_enum([$',$i,$n,$t,$',$(|Tail],Acc) ->
+get_enum("'int'(" ++ Tail,Acc) ->
 	{NumberStr,NTail} = untill_bracket(Tail),
 	Number = list_to_integer(NumberStr),
 	get_enum(NTail,[Number|Acc]);
-get_enum([$,,$',$i,$n,$t,$',$(|Tail],Acc) ->
+get_enum(",'int'(" ++ Tail,Acc) ->
 	{NumberStr,NTail} = untill_bracket(Tail),
 	Number = list_to_integer(NumberStr),
 	get_enum(NTail,[Number|Acc]);
-get_enum([$'|Tail],Acc) ->
+get_enum("'" ++ Tail,Acc) ->
 	{AtomStr,NTail} = untill_colon(Tail),
 	Atom = list_to_atom(AtomStr),
 	get_enum(NTail,[Atom|Acc]);
 get_enum([_Other|Tail],Acc) ->
-	% io:format("Other: ~p\n",[Other]),
 	{Acc,Tail};
 get_enum([],Acc) ->
 	{Acc,[]}.
@@ -121,27 +119,15 @@ untill_char(_,[],Acc) ->
 	{Acc,[]}.
 
 
-% rewrite_vars([$",$_|Tail]) ->
-% 	{Var, [FollChar|Ntail]} = read_whole_var(Tail),
-% 	case Var of
-% 	     [] ->
-% 	     	[$",$_|rewrite_vars(Tail)];
-% 	     _ -> 
-% 	     	case FollChar of 
-% 	     		$" -> [];
-% 	     		_ -> [$"]
-% 	     	end
-% 	       	++ [$v,$a,$r,$_|Var] ++ rewrite_vars(Ntail)
-% 	 end;
-rewrite_vars([$_|Tail]) ->
+rewrite_vars("_" ++ Tail) ->
 	{Var, Ntail} = read_whole_var(Tail),
 	case Var of
 	     [] ->
-	     	[$_|rewrite_vars(Tail)];
+	     	"_" ++ rewrite_vars(Tail);
 	     _ -> 
-	       	[$v,$a,$r,$_|Var] ++ rewrite_vars(Ntail)
+	       	"var_" ++ Var ++ rewrite_vars(Ntail)
 	 end;
-rewrite_vars([$!,$=,$(|Tail]) ->
+rewrite_vars("!=(" ++ Tail) ->
 	First = string:str(Tail,"\""),
 	NTail = string:sub_string(Tail, First), 
 	Args = string:sub_string(Tail,1,First - 2),
@@ -155,7 +141,7 @@ rewrite_vars([]) ->
 	
 	
 read_whole_var([Char|Tail]) ->
-	case lists:member(Char,[$0,$1,$2,$3,$4,$5,$6,$7,$8,$9]) of
+	case lists:member(Char,"0123456789") of
 	     true -> 
 	     	{RVar,RTail} = read_whole_var(Tail),
 	        {[Char|RVar],RTail};
@@ -200,10 +186,10 @@ get_value(Str,Dict) ->
 contains_vars({op,_,_,E1,E2}) ->
 	contains_vars(E1) orelse contains_vars(E2);
 contains_vars({atom,_,Atom}) ->
-        case atom_to_list(Atom) of
-             [$v,$a,$r,$_|_] -> true;
-             _ -> false
-        end;
+	case atom_to_list(Atom) of
+		"var_" ++ _ -> true;
+		_ -> false
+	end;
 contains_vars(_) ->
 	false.
 	
@@ -331,7 +317,6 @@ convert_erlang(X) ->
 	X.
 
 replace_channels([{in,Event}|Tail],Dict) ->
-	%io:format("Event ~p\nDict ~p\nReplacement ~p\n",[Event,Dict,replace_event(Event,Dict)]),
 	[{in,replace_event(Event,Dict)}|replace_channels(Tail,Dict)];
 replace_channels([{'inGuard',Var,List}|Tail],Dict) ->
 	[{'inGuard',replace_event(Var,Dict),List}|replace_channels(Tail,Dict)];
@@ -343,14 +328,14 @@ replace_channels([],_) -> [].
 matching([Par|Pars],[Arg|Args]) when is_atom(Par) ->
 	ParStr = atom_to_list(Par),
 	case ParStr of
-	     [$v,$a,$r,$_|_] ->
-	     	matching(Pars,Args);
-	     _ ->
-	     	case Par == Arg of
-	     	     true -> matching(Pars,Args);
-	     	     false -> false
-	     	end
-	 end;
+		"var_" ++ _ ->
+			matching(Pars,Args);
+		_ ->
+			case Par == Arg of
+				true -> matching(Pars,Args);
+				false -> false
+			end
+	end;
 matching([Par|Pars],[Par|Args]) when is_integer(Par) ->
 	matching(Pars,Args);
 matching([Par|_],[_|_]) when is_integer(Par) ->
@@ -360,61 +345,10 @@ matching(_,_) -> false.
 
 
 fake_process_name([]) -> false;
-fake_process_name([$-|Tail]) ->
+fake_process_name("-" ++ Tail) ->
 	case Tail of
-	     [$>,$_|_] -> true;
+	     ">_" ++ _ -> true;
 	     _ -> fake_process_name(Tail)
 	end;
 fake_process_name([_|Tail]) -> 
 	fake_process_name(Tail).
-
-
-
-%replace_fake_processes({prefix,SPANevent,Channels,Event,P,SPANarrow},Dict) ->
-%	{prefix,SPANevent,Channels,
-%	 Event,replace_fake_processes(P,Dict),SPANarrow};
-%replace_fake_processes({'|~|',P1,P2,SPAN},Dict) ->
-%	{'|~|',replace_fake_processes(P1,Dict),replace_fake_processes(P2,Dict),SPAN};
-%replace_fake_processes({'[]',P1,P2,SPAN},Dict) ->
-%	{'[]',replace_fake_processes(P1,Dict),replace_fake_processes(P2,Dict),SPAN};
-%replace_fake_processes({'ifte',ConditionStr,P1,P2,SPAN1,SPAN2,SPAN3},Dict) ->
-%	{'ifte',ConditionStr,replace_fake_processes(P1,Dict),
-%	 replace_fake_processes(P2,Dict),SPAN1,SPAN2,SPAN3};
-%replace_fake_processes({agent_call,SPAN,ProcessName,Arguments},Dict) ->
-%     	 case fake_process_name(atom_to_list(ProcessName)) of
-%     	      true ->
-%     	      	case ets:lookup(Dict, ProcessName) of
-%     	      	     [{ProcessName,{_,ProcessBody_}}] ->
-%     	      	     	ets:delete(Dict, ProcessName),
-%     	      	     	ProcessBody_;
-%     	      	     _ ->
-%     	      	     	{agent_call,SPAN,ProcessName,Arguments}
-%     	      	end;
-%     	      false ->
-%     	      	{agent_call,SPAN,ProcessName,Arguments}
-%     	 end;
-%	%{agent_call,SPAN,ProcessName,Arguments};
-%replace_fake_processes({sharing,{closure,Events},P1,P2,SPAN},Dict) ->
-%	{sharing,{closure,Events},
-%	 replace_fake_processes(P1,Dict),replace_fake_processes(P2,Dict),SPAN};
-%replace_fake_processes({'|||',P1,P2,SPAN},Dict) ->
-%	{'|||',replace_fake_processes(P1,Dict),replace_fake_processes(P2,Dict),SPAN};
-%replace_fake_processes({procRenaming,{rename,Original,Renamed},P,SPAN},Dict) ->
-%	{procRenaming,{rename,Original,Renamed},
-%	 replace_fake_processes(P,Dict),SPAN};
-%replace_fake_processes({'\\',P,{closure,Events},SPAN},Dict) ->
-%	{'\\',replace_fake_processes(P,Dict),{closure,Events},SPAN};
-%replace_fake_processes({';',PA,PB,SPAN},Dict) ->
-%	{';',replace_fake_processes(PA,Dict),replace_fake_processes(PB,Dict),SPAN};
-%replace_fake_processes({skip,SPAN},_) -> {skip,SPAN};
-%replace_fake_processes({stop,SPAN},_) -> {stop,SPAN}.
-%
-%
-%fake_process_name([]) -> false;
-%fake_process_name([$-|Tail]) ->
-%	case Tail of
-%	     [$>,$_|_] -> true;
-%	     _ -> fake_process_name(Tail)
-%	end;
-%fake_process_name([_|Tail]) -> 
-%	fake_process_name(Tail).

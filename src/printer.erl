@@ -1,110 +1,183 @@
 -module(printer).
 
--export([loop/2, nonid_loop/0, digraph_loop/0, 
-		string_arguments/1, add_to_file/2,
-		string_vertex_dot/4, string_edge_dot/3,
-		string_channels/1, string_list/1,
-		extractFromTo/2]).
+-export([
+	%% 'printer' process API
+	start_and_register_once/0,
+	start_and_register_once/2,
+	start_and_register_until_success/0,
+	get_info_graph/0,
+	get_info_graph_no_stop/0,
+	get_trace/0,
+	print/1,
+	print_sync/2,
+	create_graph/2,
+	create_graph_no_ided/2,
+	remove_graph_no_ided/1,
+	%% spawn points
+	loop/2, nonid_loop/0, digraph_loop/0,
+	%% current process API
+	string_arguments/1, add_to_file/2,
+	string_vertex_dot/4, string_edge_dot/3,
+	string_channels/1, string_list/1,
+	extractFromTo/2
+]).
 
 -include("csp_tracker.hrl").
 
-loop(Option,LiveSaving) ->
-	case lists:member(nonid,registered()) of
-	     true -> 
-	     	ok;
-	     false -> 
-	     	register(nonid, spawn(printer,nonid_loop,[]))
-	end,
-	case lists:member(digraph,registered()) of
-	     true -> 
-	     	ok;
-	     false -> 
-	     	register(digraph, spawn(printer,digraph_loop,[]))
-	end,
-	case Option of
-	     only_externals -> loop(0,false,LiveSaving,{{0,0,0,0},"",""});
-	     all -> loop(0,true,LiveSaving,{{0,0,0,0},"",""})
+%% PUBLIC API (process control) %%
+start_and_register_once() ->
+	start_and_register_once(all, false).
+start_and_register_once(Option, LiveSaving) ->
+	csp_util:register_once(printer, fun () -> loop(Option, LiveSaving) end).
+
+start_and_register_until_success() ->
+	start_and_register_until_success(all, false).
+start_and_register_until_success(Option, LiveSaving) ->
+	case start_and_register_once(Option, LiveSaving) of
+		true -> start_and_register_until_success(Option, LiveSaving);
+		badarg -> start_and_register_until_success(Option, LiveSaving);
+		ok -> ok
 	end.
 
-%The functionality for showing non-executed code has been diasabled. In order to activate it again uncomment lines add_to_file and remove_from_file from the no_ided messages services. 
+get_info_graph() ->
+	get_info_graph(info_graph).
+
+get_info_graph_no_stop() ->
+	get_info_graph(info_graph_no_stop).
+
+get_info_graph(Type) ->
+	csp_util:send_message(printer, {Type, self()}),
+	receive
+		{info_graph, InfoGraph} -> InfoGraph
+	after 1000 -> throw(timeout)
+	end.
+
+get_trace() ->
+	csp_util:send_message(printer, {get_trace, self()}),
+	receive
+		{trace, Trace} -> Trace
+	end.
+
+print(Message) ->
+	csp_util:send_message(printer, {print, Message, self()}),
+	receive
+		{printed, Message} -> ok
+	end.
+
+print_sync(NodeA, NodeB) ->
+	csp_util:send_message(printer, {print_sync, NodeA, NodeB, self()}),
+	receive
+		{printed_sync, NodeA, NodeB} -> ok
+	end.
+
+remove_graph_no_ided(IdAno) ->
+	csp_util:send_message(printer, {remove_graph_no_ided, IdAno, self()}),
+	receive
+		{removed, IdAno} -> ok
+	end.
+
+create_graph(Process, GraphParent) ->
+	csp_util:send_message(printer, {create_graph, Process, GraphParent, self()}),
+	receive
+		{created, NGraphParent} -> NGraphParent
+	end.
+
+create_graph_no_ided(Prefixing, GraphParent) ->
+	csp_util:send_message(printer, {create_graph_no_ided, Prefixing, GraphParent, self()}),
+	receive
+		{created_no_id, IdAno} -> IdAno
+	end.
+
+%%%% INTERNAL FUNCTIONS %%%%
+
+%% Check if we should generate the graph or just run the CSP.
+printer_in_operation() ->
+	case os:getenv("CSP_TRACKER_MODE", "track") of
+		"track" -> true;
+		"run" -> false
+	end.
+
+%% PROCESS API %%
+
+loop(Option,LiveSaving) ->
+	csp_util:register_once(nonid, fun() -> printer:nonid_loop() end),
+	csp_util:register_once(digraph, fun() -> printer:digraph_loop() end),
+	PrintInternals =
+		case Option of
+			only_externals -> false;
+			all -> true
+		end,
+	loop(0,PrintInternals,LiveSaving,{{0,0,0,0},"",""}).
+
+%The functionality for showing non-executed code has been diasabled.
 loop(Free,PrintInternals,LiveSaving,State) ->
 	receive
 		{print,Event,Pid} -> 
-				EventTrace = 
-			        case PrintInternals of
-			             true ->
-			               	print_event(Event);
-			             false ->
-			             	case atom_to_list(Event) of
-			             	     [$ ,$ ,$ ,$t,$a,$u|_] -> "";
-			             	     [$ ,$ ,$ ,$t,$i,$c,$k|_] -> "";
-			             	     _ -> print_event(Event)
-			             	end
-			        end,
-			    {InfoGraph,G,Trace} = State,
-			    NTrace = 
-				    case LiveSaving of 
-				    	true -> 
-				    		io:format("~s",[EventTrace]),
-				    		Trace;
-				    	false ->
-				    		Trace ++ EventTrace
-				    end,
+			EventTrace =
+				case PrintInternals of
+					true ->
+						print_event(Event);
+					false ->
+						case atom_to_list(Event) of
+							"   tau" ++ _ -> "";
+							"   tick" ++ _ -> "";
+							_ -> print_event(Event)
+						end
+				end,
+			{InfoGraph,G,Trace} = State,
+			NTrace =
+				case LiveSaving of
+					true ->
+						io:format("~s",[EventTrace]),
+						Trace;
+					false ->
+						Trace ++ EventTrace
+				end,
 			Pid!{printed,Event},
 			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
 		{unprint_last, Pid} -> 
 			{InfoGraph,G,Trace} = State,
-		    NTrace = 
-			    lists:droplast(lists:droplast(Trace)),
+			NTrace = lists:droplast(lists:droplast(Trace)),
 			Pid!unprinted_last,
-			% io:format("Trace: ~p\nNTrace: ~p\n", [Trace, NTrace]),
 			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
 		{unprint_last_from, Events, Pid} -> 
 			{InfoGraph,G,Trace} = State,
-		    NTraceRev0 = 
-			    lists:reverse(Trace),
-			NTraceRev = 
-				remove_event_from(NTraceRev0, Events),
-			NTrace = 
-				lists:reverse(NTraceRev),
+			NTraceRev0 = lists:reverse(Trace),
+			NTraceRev = remove_event_from(NTraceRev0, Events),
+			NTrace = lists:reverse(NTraceRev),
 			Pid!unprinted_last,
-			% io:format("Trace: ~p\nNTrace: ~p\n", [Trace, NTrace]),
 			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
-%		{no_print,Event,Pid} -> 
-%			Pid!{no_printed,Event,io_lib:format("~p\n",[Event])},
-%			loop(Free);
 		{print_sync,NodeA,NodeB,Pid} ->
-		     Pid!{printed_sync,NodeA,NodeB},
-		     		     {{N,E,S,_},G,Trace} = State,
-		     digraph!{add, edge, NodeA, NodeB, "sync"},
-		     StringSyncEdge = 
-		  		string_edge_dot(NodeA, NodeB, "sync"),
-		     NG = 
-			     case LiveSaving of 
-			     	true ->
-			     		add_to_file(StringSyncEdge,false),
-			     		G;
-				    false ->
-				    	G ++ StringSyncEdge
-				 end,
-		     loop(Free,PrintInternals,LiveSaving,{{N,E,S + 1,erlang:monotonic_time()},NG,Trace});
+			Pid!{printed_sync,NodeA,NodeB},
+			{{N,E,S,_},G,Trace} = State,
+			digraph_add_edge(NodeA, NodeB, "sync"),
+			StringSyncEdge = string_edge_dot(NodeA, NodeB, "sync"),
+			NG =
+				case LiveSaving of
+					true ->
+						add_to_file(StringSyncEdge,false),
+						G;
+					false ->
+						G ++ StringSyncEdge
+				end,
+			loop(Free,PrintInternals,LiveSaving,{{N,E,S + 1,erlang:monotonic_time()},NG,Trace});
 		{create_graph,Process,Parent,Pid} ->
 			{Graph,NFree,NParent,TotalCreated} = create_graph_string(Process,Free,Parent),
 			{{N,E,S,_},G,Trace} = State,
 			NG = 
 				case Graph of
-				     "" -> 
-				     	Pid ! {created,Parent},
-				     	G;
-				     _ ->
-				     	Pid ! {created,NParent},
-				     	case LiveSaving of 
-					     	true ->
-					     		add_to_file(Graph,false),
-					     		G;
-						    false ->
-						    	G ++ Graph
-						 end
+					"" ->
+						Pid ! {created,Parent},
+						G;
+					_ ->
+						Pid ! {created,NParent},
+						case LiveSaving of
+							true ->
+								add_to_file(Graph,false),
+								G;
+							false ->
+								G ++ Graph
+						end
 				end,
 			{NN,NE} = 
 				case TotalCreated of 
@@ -115,78 +188,41 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 				end,
 			loop(NFree,PrintInternals,LiveSaving,{{NN,NE,S,erlang:monotonic_time()},NG,Trace});
 		{create_graph_no_ided,Process,Parent,Pid} ->
-		    %io:format("~p\n~p\n",[Process,Parent]),
 			{_Graph,IdAno} = create_graph_string_no_ided(Process,Parent),
-			%io:format("{Parent,Free,NFree}: ~p\n",[{Parent,Free,NFree}]),
-			% add_to_file("//-> "++atom_to_list(IdAno)++"\n"
-			%             ++Graph++
-			%             "//<- "++atom_to_list(IdAno)++"\n"),
 			Pid ! {created_no_id,IdAno},
 			loop(Free,PrintInternals,LiveSaving,State);
 		{remove_graph_no_ided,IdAno,Pid} ->
-			% remove_from_file("//-> "++atom_to_list(IdAno),
-			%                  "//<- "++atom_to_list(IdAno)),
 			Pid ! {removed,IdAno},
 			loop(Free,PrintInternals,LiveSaving,State);
-%		{print_graph_temporal,Graph,IdAno,Pid} ->
-%			add_to_file("//-> "++atom_to_list(IdAno)
-%			            ++Graph++
-%			            "//<- "++atom_to_list(IdAno)),
-%			Pid ! {printed_graph,Graph,IdAno},
-%			loop(Free,PrintInternals);
 		{info_graph,Pid} ->
-			digraph!{get, self()},
-			receive
-				{digraph,G} ->
-					Pid!{info_graph, {State, G}},
-					% Because it is only called when finished 
-					finish_computation()
-			end;
+			G = digraph_get(),
+			Pid ! {info_graph, {State, G}},
+			% Because it is only called when finished
+			finish_computation();
 		{info_graph_no_stop,Pid} ->
-			digraph!{get, self()},
-			receive
-				{digraph,G} ->
-					Pid!{info_graph, {State, G}},
-					loop(Free,PrintInternals,LiveSaving,State)
-			end;
+			G = digraph_get(),
+			Pid ! {info_graph, {State, G}},
+			loop(Free,PrintInternals,LiveSaving,State);
 		{get_trace, Pid} ->
 			{_,_,Trace} = State,
-			Pid!{trace, Trace},
+			Pid ! {trace, Trace},
 			loop(Free,PrintInternals,LiveSaving,State);
 		stop -> 
 			finish_computation();
 		{stop, Pid} -> 
 			finish_computation(),
-			Pid!stopped
+			Pid ! stopped
 	end.
 	
 finish_computation() ->
-	try 
-		nonid!{stop, self()},
-		receive 
-			stopped -> 
-				ok
-		end
-	catch
-		_:_ -> 
-			ok
-	end,
-	try
-		digraph!{stop, self()},
-		receive 
-			stopped -> 
-				ok
-		end
-	catch
-		_:_ -> 
-			ok 
-	end,
+	catch csp_util:stop_and_wait(nonid),
+	catch csp_util:stop_and_wait(digraph),
 	ok.
 
 print_event(Event) ->
 	case {csp_parsing:fake_process_name(atom_to_list(Event)),atom_to_list(Event) == ?SLICE} of
-	     {false, false} -> io_lib:format("~s\n",[atom_to_list(Event)]);
-	     _ -> ""
+		{false, false} -> io_lib:format("~s\n",[atom_to_list(Event)]);
+		_ -> ""
 	end.
 	
 add_to_file(String,NoOutput) ->
@@ -195,62 +231,27 @@ add_to_file(String,NoOutput) ->
 	file:close(IODevice),
 	file:write_file("track.dot", list_to_binary(Read ++String++"}")),
 	case NoOutput of 
-		false ->
-			os:cmd("dot -Tpdf track.dot > track.pdf");
-		true ->
-			ok
+		false -> os:cmd("dot -Tpdf track.dot > track.pdf");
+		true -> ok
 	end.
-
 	
-%%remove_from_file(String1,String2) ->
-%%	{ok, IODevice} = file:open("track.dot",[read]),
-%%	Read = read_file(IODevice),
-%%	file:close(IODevice),
-%%	file:write_file("track.dot",
-%%	                list_to_binary(remove_from_graph(Read,String1,String2,"")++"}")),
-%%	os:cmd("dot -Tpdf track.dot > track.pdf").
-	
-	
-%%remove_from_graph([Char|Tail],String1,String2,Acc) ->
-%%	case Char of
-%%	     10 ->
-%%	     	case Acc of
-%%	     	     String1 -> "\n"++remove_from_graph(Tail,String2,"");
-%%	     	     _ -> Acc ++ "\n" ++ remove_from_graph(Tail,String1,String2,"")
-%%	     	end;
-%%	     _ ->
-%%	     	remove_from_graph(Tail,String1,String2,Acc++[Char])
-%%	end.
-	
-%%remove_from_graph([Char|Tail],String,Acc) ->
-%%	case Char of
-%%	     10 ->
-%%	     	case Acc of
-%%	     	     String -> Tail;
-%%	     	     _ -> remove_from_graph(Tail,String,"")
-%%	     	end;
-%%	     _ ->
-%%	     	remove_from_graph(Tail,String,Acc++[Char])
-%%	end.
-	
-read_file(IODevice) -> 
+read_file(IODevice) ->
 	read_file(IODevice,[],[]).
-	
+
 read_file(IODevice,PrevData,Acc) ->
 	case io:request(IODevice, {get_line, ''}) of
-	     eof -> Acc;
-	     Data -> read_file(IODevice,Data,Acc++PrevData)
-	     
+		eof -> Acc;
+		Data -> read_file(IODevice,Data,Acc++PrevData)
 	end.	
 	
 create_graph_string(Process,Free,Parent) ->
-	{SProcess,NFree,NParent} = create_graph(Process,Free),
+	{SProcess,NFree,NParent} = create_graph_internal(Process,Free),
 	{SEdge,TotalNodesEdges} = 
 	  case {NParent =/= Parent, SProcess, Parent} of
-	  	   {_,"",_} -> {"",0};
-	       {_,_,-1} -> {"",1};
-	       {false,_,_} -> {"",1};
-	       {true,_,_} -> {string_edge(Parent,Free),2}
+			{_,"",_} -> {"",0};
+			{_,_,-1} -> {"",1};
+			{false,_,_} -> {"",1};
+			{true,_,_} -> {string_edge(Parent,Free),2}
 	  end,
 	NTotalNodesEdges = 
 		case Process of 
@@ -264,167 +265,114 @@ create_graph_string(Process,Free,Parent) ->
 	{SEdge ++ SProcess,NFree,NParent,NTotalNodesEdges}.
 	
 create_graph_string_no_ided({prefix,SPANevent,Channels,Event,_,SPANarrow},Parent) ->
-	nonid!{get,self()},
-	receive
-		{idano,IdA} -> ok
-	end,
-	nonid!{get,self()},
-	receive
-		{idano,IdB} -> ok
-	end,
-	%io:format("IdA: ~p\nIdB: ~p\n",[IdA,IdB]),
-	SProcess = 
+	IdA = nonid_get(),
+	IdB = nonid_get(),
+	SProcess =
 	 string_vertex_no_ided(IdA,atom_to_list(Event)++string_channels(Channels),SPANevent)++
 	 string_vertex_no_ided(IdB,"->",SPANarrow)++
 	 atom_to_list(IdA)++" -> "++atom_to_list(IdB)
 	 ++" [color=black, penwidth=3];\n",
 	SEdge = 
 	  case Parent of
-	       -1 -> "";
-	       _ -> integer_to_list(Parent)++" -> "++atom_to_list(IdA)
-	            ++" [color=black, penwidth=3];\n"
+			-1 -> "";
+			_ -> integer_to_list(Parent) ++ " -> " ++ atom_to_list(IdA)
+				++ " [color=black, penwidth=3];\n"
 	  end,
 	{SEdge ++ SProcess,IdA}.
 
-
-create_graph({prefix,SPANevent,Channels,Event,_,SPANarrow},Free) ->
+create_graph_internal({prefix,SPANevent,Channels,Event,_,SPANarrow},Free) ->
 	Str = 
 		string_vertex(Free, atom_to_list(Event) ++ string_channels(Channels),SPANevent) 
 	 	++ string_vertex(Free+1,"->",SPANarrow) ++ string_edge(Free,Free+1),
-	% case  atom_to_list(Event) of 
-	% 	% ?SLICE -> 
-	% 	"sdasd" ->
-	% 		{" ", Free,Free};
-	% 	_ -> 
-			{Str, Free+2,Free+1};
-	% end;
-create_graph({renamed_event,Executed,{prefix,SPANevent,Channels,Event,_,SPANarrow}},Free) ->
+	{Str, Free+2,Free+1};
+create_graph_internal({renamed_event,Executed,{prefix,SPANevent,Channels,Event,_,SPANarrow}},Free) ->
 	RenamingInfo = 
 		case Executed of 
-			Event -> 
-				"";
-			_ ->
-				" [[" ++ atom_to_list(Event) ++ "<-" ++ atom_to_list(Executed) ++ "]]"
+			Event -> "";
+			_ -> " [[" ++ atom_to_list(Event) ++ "<-" ++ atom_to_list(Executed) ++ "]]"
 		end,
 	Str = 
 		string_vertex(Free,atom_to_list(Executed) ++ string_channels(Channels)
 		++ RenamingInfo,SPANevent) ++ string_vertex(Free+1,"->",SPANarrow) 
 		++ string_edge(Free,Free+1),
-	% case  atom_to_list(Executed) of 
-	% 	% ?SLICE -> 
-	% 	"sdasd" ->
-	% 		{" ", Free,Free};
-	% 	_ -> 
-			{Str, Free+2,Free+1};
-	% end;
-create_graph({'|~|',_,_,SPAN},Free) ->
+	{Str, Free+2,Free+1};
+create_graph_internal({'|~|',_,_,SPAN},Free) ->
 	{string_vertex(Free,"|~|",SPAN),Free+1,Free};
-create_graph({'|~|',_,_,Selected,SPAN},Free) ->
+create_graph_internal({'|~|',_,_,Selected,SPAN},Free) ->
 	{string_vertex(Free,"|~|." ++ atom_to_list(Selected),SPAN),Free+1,Free};
-create_graph({'[]',_,_,SPAN},Free) ->
+create_graph_internal({'[]',_,_,SPAN},Free) ->
 	{string_vertex(Free,"[]",SPAN),Free+1,Free};
-create_graph({'ifte',Condition,_,_,SPAN1,_,_},Free) ->
+create_graph_internal({'ifte',Condition,_,_,SPAN1,_,_},Free) ->
 	{string_vertex(Free,"<<"++atom_to_list(Condition)++">>",SPAN1),Free+1,Free};
-create_graph({agent_call,SPAN,ProcessName,Arguments},Free) ->
-        case csp_parsing:fake_process_name(atom_to_list(ProcessName)) of
-             true -> {"",Free,Free};
-             false ->
-                {string_vertex(Free,atom_to_list(ProcessName)++string_arguments(Arguments),SPAN),
-	         Free+1,Free}
-        end;
-create_graph({sharing,{closure,Events},_,_,SPAN},Free) ->
-	{string_vertex(Free,"[|{|"++string_list(Events)++"|}|]",SPAN),
-	 Free+1,Free};
-create_graph({'|||',_,_,SPAN},Free) ->
+create_graph_internal({agent_call,SPAN,ProcessName,Arguments},Free) ->
+	case csp_parsing:fake_process_name(atom_to_list(ProcessName)) of
+		true -> {"",Free,Free};
+		false ->
+			{string_vertex(Free,atom_to_list(ProcessName)++string_arguments(Arguments),SPAN),
+				Free+1,Free}
+	end;
+create_graph_internal({sharing,{closure,Events},_,_,SPAN},Free) ->
+	{string_vertex(Free,"[|{|"++string_list(Events)++"|}|]",SPAN),Free+1,Free};
+create_graph_internal({'|||',_,_,SPAN},Free) ->
 	{string_vertex(Free,"|||",SPAN),Free+1,Free};
-create_graph({skip,SPAN},Free) ->
+create_graph_internal({skip,SPAN},Free) ->
 	{string_vertex(Free,"SKIP",SPAN),Free+1,Free};
-create_graph({stop,SPAN},Free) ->
+create_graph_internal({stop,SPAN},Free) ->
 	{string_vertex(Free,"STOP",SPAN),Free+1,Free};
-create_graph({procRenaming,Renamings,_,SPAN},Free) ->
-	% StringRenaming = 
-	% 	case is_atom(Renamed) of 
-	% 		true ->
-	% 			"[[" ++ atom_to_list(Original) ++ 
-	%                  " <- " ++ atom_to_list(Renamed) ++ "]]";
-	%  		false ->
-	%  			"[[" ++ [atom_to_list(ItemRenamed) ++ "," | ItemRenamed <- Renamed]
-	%  	end,
-	% {rename,Original,Renamed}
-	StringRenamingList0 =
-		lists:flatten(
-			[atom_to_list(Original) ++ " <- " ++ atom_to_list(Renamed) ++ "," 
-			 || {rename,Original,Renamed} <- Renamings]),
-	StringRenamingList = 
-		lists:reverse(tl(lists:reverse(StringRenamingList0))),
+create_graph_internal({procRenaming,Renamings,_,SPAN},Free) ->
+	StringRenamingList0 = lists:flatten(
+		[atom_to_list(Original) ++ " <- " ++ atom_to_list(Renamed) ++ ","
+			|| {rename,Original,Renamed} <- Renamings]),
+	StringRenamingList = lists:reverse(tl(lists:reverse(StringRenamingList0))),
 	StringRenaming = "[[" ++ StringRenamingList ++ "]]",
 	{string_vertex(Free,StringRenaming,SPAN),Free+1,Free};
-create_graph({'\\',_,{closure,Events},SPAN},Free) ->
-	{string_vertex(Free,"\\\\ {|"++string_list(Events)++"|}",SPAN),
-	 Free+1,Free};
-create_graph({';',NodesFinished,SPAN},Free) ->
-	{lists:append([string_edge(Node,Free) || Node <- NodesFinished]) ++ 
-	 string_vertex(Free,";",SPAN),Free+1,Free}.
-
+create_graph_internal({'\\',_,{closure,Events},SPAN},Free) ->
+	{string_vertex(Free,"\\\\ {|"++string_list(Events)++"|}",SPAN),Free+1,Free};
+create_graph_internal({';',NodesFinished,SPAN},Free) ->
+	{lists:append([string_edge(Node,Free) || Node <- NodesFinished]) ++
+		string_vertex(Free,";",SPAN),Free+1,Free}.
 
 string_vertex(Id,Label,SPAN) ->
-	digraph!{add, vertex, Id, {Label, SPAN}},
+	digraph_add_vertex(Id, {Label, SPAN}),
 	string_vertex_dot(Id,Label,SPAN,[]).
 	
 string_vertex_no_ided(Id,Label,SPAN) ->
 	{FL,FC,TL,TC} = extractFromTo(SPAN,Label),
-	%string_vertex(Id,Label).
-	atom_to_list(Id)++" "++"[shape=ellipse, label=\""
-	++ Label ++
-	"\\nfrom ("++ integer_to_list(FL) ++ "," ++ integer_to_list(FC) ++
-	") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")\\l\"];\n".
+	atom_to_list(Id) ++ " " ++ "[shape=ellipse, label=\"" ++ Label ++
+		"\\nfrom (" ++ integer_to_list(FL) ++ "," ++ integer_to_list(FC) ++
+		") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")\\l\"];\n".
 
-%string_vertex(Id,Label) ->
-%	integer_to_list(Id)++" "++"[shape=ellipse, label=\""
-%	++integer_to_list(Id)++" .- " ++ Label ++ "\"];\n".
-	
 string_edge(From, To) ->
-	digraph!{add, edge, From, To, "control"},
+	digraph_add_edge(From, To, "control"),
 	string_edge_dot(From, To, "control").
 	
 string_vertex_dot(Id,Label,SPAN, Slice) ->
 	Style = 
 		case lists:member(Id, Slice) of 
-			true ->  
-				" style=filled color=\"gray\" fontcolor=\"black\" fillcolor=\"gray\"";
-			false -> 
-				""
+			true -> " style=filled color=\"gray\" fontcolor=\"black\" fillcolor=\"gray\"";
+			false -> ""
 		end,
 	{FL,FC,TL,TC} = extractFromTo(SPAN,Label),
-	%string_vertex(Id,Label).
-	% label = "{{ $id | $label } | { ($FL, $FC) to ($TL, $TC) }}"
 	integer_to_list(Id) ++ " " ++ "[shape=none, label=<<table PORT=\"p\"><tr><td>"
-	++ integer_to_list(Id) ++ "</td><td>" ++ escape_html(Label)
-	++ "</td></tr><tr><td colspan=\"2\">(" ++ integer_to_list(FL) ++ "," ++ integer_to_list(FC)
-	++ ") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")</td></tr></table>>"
-	++ Style ++ "];\n".
+		++ integer_to_list(Id) ++ "</td><td>" ++ escape_html(Label)
+		++ "</td></tr><tr><td colspan=\"2\">(" ++ integer_to_list(FL) ++ "," ++ integer_to_list(FC)
+		++ ") to (" ++ integer_to_list(TL) ++ "," ++ integer_to_list(TC) ++")</td></tr></table>>"
+		++ Style ++ "];\n".
 
 string_edge_dot(From, To, "control") ->
-	integer_to_list(From) ++ ":p -> " ++ integer_to_list(To)
-	++ ":p [color=black, penwidth=3];\n";
+	integer_to_list(From) ++ ":p -> " ++ integer_to_list(To) ++ ":p [color=black, penwidth=3];\n";
 string_edge_dot(NodeA, NodeB, "sync") ->
 	integer_to_list(NodeA) ++ ":p -> " ++ integer_to_list(NodeB)
-	++ ":p [style=dashed, penwidth=3, color=red, arrowhead=none, constraint=false];\n".
+		++ ":p [style=dashed, penwidth=3, color=red, arrowhead=none, constraint=false];\n".
 	
 string_list([Event]) -> 
 	atom_to_list(Event);
 string_list([Event|Events]) -> 
-	atom_to_list(Event)++","++string_list(Events);
+	atom_to_list(Event) ++ "," ++ string_list(Events);
 string_list([]) ->
 	[].
 
 string_arguments(Pars = [_|_]) ->
-%	Rest = 
-%		case string_arguments_aux(Pars) of
-%		     [] -> "";
-%		     Rest_ -> "," ++ Rest_
-%		end,
-%	"(" ++ atom_to_list(Par) ++ Rest  ++")";
 	"(" ++ string_arguments_aux(Pars)  ++ ")";
 string_arguments([]) -> "".
 
@@ -444,23 +392,23 @@ extractFromTo({src_position,FL,FC,_,_},Op) ->
 	{FL,FC,FL,FC+length(Op)}.
 	
 string_channels([{in,Event}|Tail]) when is_atom(Event) ->
-	"?"++atom_to_list(Event)++string_channels(Tail);
+	"?" ++ atom_to_list(Event) ++ string_channels(Tail);
 string_channels([{in,Event}|Tail]) when is_list(Event) ->
-	"?"++Event++string_channels(Tail);
+	"?" ++ Event ++ string_channels(Tail);
 string_channels([{'inGuard',Event,_}|Tail]) when is_atom(Event) ->
-	"?"++atom_to_list(Event)++string_channels(Tail);
+	"?" ++ atom_to_list(Event) ++ string_channels(Tail);
 string_channels([{out,Event}|Tail]) when is_atom(Event) ->
-	"!"++atom_to_list(Event)++string_channels(Tail);
+	"!" ++ atom_to_list(Event) ++ string_channels(Tail);
 string_channels([{in,Event}|Tail]) when is_integer(Event) ->
-	"?"++integer_to_list(Event)++string_channels(Tail);
+	"?" ++ integer_to_list(Event) ++ string_channels(Tail);
 string_channels([{'inGuard',Event,_}|Tail]) when is_integer(Event) ->
-	"?"++integer_to_list(Event)++string_channels(Tail);
+	"?" ++ integer_to_list(Event) ++ string_channels(Tail);
 string_channels([{out,Event}|Tail]) when is_integer(Event) ->
-	"!"++integer_to_list(Event)++string_channels(Tail);
+	"!" ++ integer_to_list(Event) ++ string_channels(Tail);
 string_channels([{'inGuard',_,List}|Tail]) ->
-	"?VAR:{"++string_arguments_aux(List)++"}"++string_channels(Tail);
+	"?VAR:{" ++ string_arguments_aux(List) ++ "}" ++ string_channels(Tail);
 string_channels([Other|Tail]) ->
-	io_lib:format("~p", [Other]) ++string_channels(Tail);
+	io_lib:format("~p", [Other]) ++ string_channels(Tail);
 string_channels([]) -> "".
 
 remove_event_from([], _) -> 
@@ -469,14 +417,11 @@ remove_event_from([10|T], Events) ->
 	[10 | remove_event_from(T, Events)];
 remove_event_from([E|T], Events) -> 
 	case lists:member(list_to_atom(E), Events) of 
-		true -> 
-			tl(T);
-		false -> 
-			[E | remove_event_from(T, Events)]
+		true -> tl(T);
+		false -> [E | remove_event_from(T, Events)]
 	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 
 nonid_loop() ->
 	nonid_loop(0).
@@ -493,6 +438,13 @@ nonid_loop(Fresh) ->
 			ok
 	end.
 
+nonid_get() ->
+	csp_util:send_message(nonid, {get, self()}),
+	receive
+		{idano, Id} -> Id
+	after 1000 -> throw(timeout)
+	end.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -504,7 +456,7 @@ digraph_loop() ->
 digraph_loop(G = {N, E}) ->
 	receive 
 		{get, Pid} ->
-			Pid!{digraph,G},
+			Pid ! {digraph, G},
 			digraph_loop(G);
 		{add, vertex, V, Label} ->
 			digraph_loop({[{V, Label} | N], E});
@@ -516,7 +468,20 @@ digraph_loop(G = {N, E}) ->
 			Pid!stopped,
 			ok
 	end.
- 
+
+digraph_get() ->
+	csp_util:send_message(digraph, {get, self()}),
+	receive
+		{digraph, G} -> G
+	after 1000 -> throw(timeout)
+	end.
+
+digraph_add_vertex(V, Label) ->
+	csp_util:send_message(digraph, {add, vertex, V, Label}).
+
+digraph_add_edge(Source, Target, Label) ->
+	csp_util:send_message(digraph, {add, edge, Source, Target, Label}).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 escape_html(Text) ->

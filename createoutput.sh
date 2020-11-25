@@ -10,8 +10,11 @@ run_linux() {
 
 run_docker() {
     echo "Running createoutput.sh through docker"
-    #docker run -t -v $PWD:/mnt ubuntu:20.04 /bin/bash -c "cd /mnt && ./createoutput.sh $1"
-    docker run -t -v $PWD:/mnt --rm debian:10-slim /bin/bash -c "cd /mnt && ./createoutput.sh $1"
+    if [ docker info > /dev/null 2>&1 ]; then
+        echo "Error! Docker is not running or the current user has no permissions."
+    else
+        docker run -t -v $PWD:/mnt --rm debian:10-slim /bin/bash -c "cd /mnt && ./createoutput.sh $1"
+    fi
 }
 
 unameOut="$(uname -s)"

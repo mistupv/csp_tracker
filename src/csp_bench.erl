@@ -17,9 +17,9 @@ bench(File,InitialProcess,Timeout,Iterations) ->
 	io:format("Data for harmonic means.\n"),
 	calculate_with_mean(Result,Iterations,harmonic, FunOutput).
 
-bench_no_latex(File,InitialProcees,Timeout,Iterations) ->
-	csp_tracker:track(File,InitialProcees,[Timeout,no_output]),
-	Result = bench_aux(File,InitialProcees,Timeout,Iterations,Iterations,[[],[],[],[],[],[],[],[]]),
+bench_no_latex(File, InitialProcess,Timeout,Iterations) ->
+	csp_tracker:track(File, InitialProcess,[Timeout,no_output]),
+	Result = bench_aux(File, InitialProcess,Timeout,Iterations,Iterations,[[],[],[],[],[],[],[],[]]),
 	% io:format("Data for arithmetic means.\n"),
 	FunOutput = 
 		fun(Means, _, _) ->
