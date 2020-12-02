@@ -2,9 +2,9 @@
 
 -export([bench/4, bench_no_latex/4]).
 
-bench(File,InitialProcees,Timeout,Iterations) ->
-	csp_tracker:track(File,InitialProcees,[Timeout,no_output]),
-	Result = bench_aux(File,InitialProcees,Timeout,Iterations,Iterations,[[],[],[],[],[],[],[],[]]),
+bench(File,InitialProcess,Timeout,Iterations) ->
+	csp_tracker:track(File,InitialProcess,[Timeout,no_output]),
+	Result = bench_aux(File,InitialProcess,Timeout,Iterations,Iterations,[[],[],[],[],[],[],[],[]]),
 	FunOutput = 
 		fun(Means, C001, C005) ->
 			io:format("Data for alpha = 0,01\n"),
@@ -32,7 +32,7 @@ calculate_with_mean(Result,Iterations,TypeMean, FunOutput) ->
 	Means = 
 		case TypeMean of 
 			arithmetic -> 
-				[lists:sum(R)/ Iterations || R <- Result];
+				[lists:sum(R) / Iterations || R <- Result];
 			harmonic ->
 				[case lists:sum([(1/X) || X <- R, X /= 0]) of
 					 0 -> 0.0;
@@ -64,21 +64,21 @@ calculate_with_mean(Result,Iterations,TypeMean, FunOutput) ->
 
 bench_aux(_,_,_,_,0,Acc) ->
 	Acc;
-bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]) ->
-	Result = csp_tracker:track(File,InitialProcees,[Timeout,no_output]),
+bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations,[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]) ->
+	Result = csp_tracker:track(File,InitialProcess,[Timeout,no_output]),
 	% io:format("Iteration ~p: ~p\n",[1 + TotalIterations - Iterations, Result]),
 	{{{IN,ICE,ISE},ITC,ITE,ITT,ISF},ITSLC} = Result,
 	case Result of 
 		{{{0,0,0},_,_,_,_},_} ->
-			bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,
+			bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations,
 				[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]);
 		_ ->
 			case lists:member(0,[IN,ICE,ISE,ITC,ITE,ITT,ISF]) of 
 				true -> 
-					bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,
+					bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations,
 						[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]);
 				false ->
-					bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations - 1,
+					bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations - 1,
 						[[IN|TN],[ICE|TCE],[ISE|TSE],[ITC|TTC],[ITE|TTE],[ITT|TTT],[ISF|TSF],[ITSLC|TSLC]])
 			end
 	end. 
