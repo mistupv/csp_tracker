@@ -69,7 +69,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 		false -> io:format("~s\n",[OutputConversion]);
 		true -> ok
 	end,
-	TimeConversion = erlang:convert_time_unit(TimeBeforeConversion - TimeAfterConversion, native, microsecond),
+	TimeConversion = erlang:convert_time_unit(TimeAfterConversion - TimeBeforeConversion, native, microsecond),
 	% case file:consult("output_rewritten1.txt") of
 	case file:consult("output_rewritten.txt") of
 		{error,{_,_,InfoError}} ->
@@ -114,7 +114,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					% TimeBeforeTrack = erlang:monotonic_time(),
 					Digraph = build_digraph(NodesDigraph, EdgesDigraph),
 					% TimeAfterTrack = erlang:monotonic_time(),
-					% io:format("Total of time generate track:\t~p ms\n",[erlang:convert_time_unit(TimeBeforeTrack - TimeAfterTrack, native, millisecond)]),
+					% io:format("Total of time generate track:\t~p ms\n",[erlang:convert_time_unit(TimeAfterTrack - TimeBeforeTrack, native, millisecond)]),
 					%TimeAfterExecuting = erlang:monotonic_time(),
 					case Timeout of
 						infinity -> 
@@ -128,7 +128,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 									ok 
 							end
 					end,
-					TimeExecuting = erlang:convert_time_unit(TimeBeforeExecuting - TimeAfterExecuting, native, microsecond),
+					TimeExecuting = erlang:convert_time_unit(TimeAfterExecuting - TimeBeforeExecuting, native, microsecond),
 					SizeFile = filelib:file_size("track.dot"), 
 					% io:format("~p.\n~p.\n", [
 					% 	[digraph:vertex(Digraph, V)  || V <- digraph:vertices(Digraph)], 
@@ -143,7 +143,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 								io:format("\n********** Results ************\n"),
 								io:format("Total of time converting:\t~p ms\n",[TimeConversion/1000]),
 								io:format("Total of time executing:\t~p ms\n",[TimeExecuting/1000]),
-								% io:format("Total of time generate track:\t~p ms\n",[erlang:convert_time_unit(TimeBeforeExecuting - TimeAfterExecuting, native, millisecond)]),
+								% io:format("Total of time generate track:\t~p ms\n",[erlang:convert_time_unit(TimeAfterExecuting - TimeBeforeExecuting, native, millisecond)]),
 								io:format("Total of time:\t~p ms\n",[(TimeExecuting + TimeConversion)/1000]),
 								io:format("Total of node:\t~p nodes\n",[N]),
 								io:format("Total of control edges:\t~p edges\n",[E]),
@@ -208,7 +208,7 @@ get_slice_code(Digraph, Slice, FirstProcess, File) ->
 get_slices_from_digraph(Digraph, Ex) ->
 	TimeBeforeExecuting = erlang:monotonic_time(),
 	Slice = csp_slicer:get_slices(Digraph, Ex),
-	TimeExecuting = erlang:convert_time_unit(TimeBeforeExecuting - erlang:monotonic_time(), native, microsecond),
+	TimeExecuting = erlang:convert_time_unit(erlang:monotonic_time() - TimeBeforeExecuting, native, microsecond),
 	{Slice,TimeExecuting}.
 
 slice_from(Digraph, Slice) ->
@@ -268,7 +268,7 @@ print_from_digraph(Digraph, NameFile, Slice, NoOutput) ->
 slice_output(Slice, FirstProcess, G, Lines) ->
 	TimeBeforeExecuting = erlang:monotonic_time(),
 	Output = csp_slicer_output:create_slicer_output(Slice, FirstProcess, G, Lines),
-	TimeExecuting = erlang:convert_time_unit(TimeBeforeExecuting - erlang:monotonic_time(), native, microsecond),
+	TimeExecuting = erlang:convert_time_unit(erlang:monotonic_time() - TimeBeforeExecuting, native, microsecond),
 	{Output, TimeExecuting}.
 
 remove_slice_nodes(Digraph) ->
