@@ -5,10 +5,14 @@ ifeq ($(UNAME_S),Linux)
 else
 	EXEC_MODE := docker
 endif
+ERLC_FLAGS := +warn_all
+ERLS := $(wildcard src/*.erl)
+BEAMS := $(patsubst src/%.erl,ebin/%.beam,$(ERLS))
 
-all: $(EXEC_MODE)
-	erlc csp_tracker_loader.erl
-	erl -run csp_tracker_loader compile -noshell -s erlang halt
+all: $(EXEC_MODE) $(BEAMS)
+
+ebin/%.beam: src/%.erl
+	erlc -o ebin ${ERLC_FLAGS} $<
 
 linux: translator parseCspForPl
 
@@ -24,5 +28,4 @@ parseCspForPl: bin_linux/parseCspForPl
 
 clean:
 	rm -f ebin/*.beam
-	rm -f *.beam
 	rm -f translator parseCspForPl

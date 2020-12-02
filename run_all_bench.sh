@@ -1,7 +1,8 @@
 #!/bin/bash
 
 array=("Buses" "Loop" "Disk" "Oven" "ProdCons" "ReadWrite" "Traffic" "ABP" "ATM" "CPU")
-for i in "${array[@]}"; do 
-    escript run_bench.sh "benchmarks/$i.csp" > "results/$i.txt"
+mkdir -p results
+for i in "${array[@]}"; do
+    echo "Start of benchmark for $i"
+    escript run_bench.sh "benchmarks/$i.csp" | tee "results/$i-$(date +%Y%m%d-%H%M%S).txt"
 done
-

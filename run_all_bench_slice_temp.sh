@@ -1,7 +1,8 @@
 #!/bin/bash
 
 array=("ABP")
-for i in "${array[@]}"; do 
-    escript run_bench.sh "benchmarks/${i}Slice.csp" > "results/$i.txt"
+mkdir -p results
+for i in "${array[@]}"; do
+    echo "Start of benchmark for $i"
+    escript run_bench.sh "benchmarks/${i}Slice.csp" | tee "results/${i}Slice-$(date +%Y%m%d-%H%M%S).txt"
 done
-
