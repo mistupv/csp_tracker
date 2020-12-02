@@ -61,6 +61,15 @@ calculate_with_mean(Result,Iterations,TypeMean, FunOutput) ->
 	% io:format("~p\n",[{Means,StandardDeviations,C005,C001}]),
 	FunOutput(Means, C001, C005).
 
+%% Meaning of accumulated [T...] and next [I...] results obtained in the benchmark
+%% 	N  = number of nodes,
+%%  CE = number of control edges,
+%%  SE = number of sync edges,
+%%  TC = time conversion csp -> erl,
+%%  TE = time executing,
+%%  TT = time conv + exec,
+%%  SF = SizeFile
+%%  SLC = time to slice (generate and print the slice)
 
 bench_aux(_,_,_,_,0,Acc) ->
 	Acc;
@@ -68,30 +77,19 @@ bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations,[TN,TCE,TSE,TTC
 	Result = csp_tracker:track(File,InitialProcess,[Timeout,no_output]),
 	% io:format("Iteration ~p: ~p\n",[1 + TotalIterations - Iterations, Result]),
 	{{{IN,ICE,ISE},ITC,ITE,ITT,ISF},ITSLC} = Result,
-	case Result of 
-		{{{0,0,0},_,_,_,_},_} ->
+	case ITE of
+		0 ->
 			bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations,
 				[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]);
 		_ ->
-			case lists:member(0,[IN,ICE,ISE,ITC,ITE,ITT,ISF]) of 
-				true -> 
-					bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations,
-						[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]);
-				false ->
-					bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations - 1,
-						[[IN|TN],[ICE|TCE],[ISE|TSE],[ITC|TTC],[ITE|TTE],[ITT|TTT],[ISF|TSF],[ITSLC|TSLC]])
-			end
-	end. 
+			bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations - 1,
+				[[IN|TN],[ICE|TCE],[ISE|TSE],[ITC|TTC],[ITE|TTE],[ITT|TTT],[ISF|TSF],[ITSLC|TSLC]])
+	end.
 
 
 getListCI(N,C,Means) ->
 	[element(1,lists:nth(N,C)), lists:nth(N,Means), element(2,lists:nth(N,C))].
 
 printLatex(C,Means) ->
-	Times_ = getListCI(4,C,Means) ++ getListCI(5,C,Means) ++ getListCI(6,C,Means) ++ getListCI(7,C,Means),
-	Times = [T/1000 || T <- Times_],
-	Graph = getListCI(1,C,Means) ++ getListCI(2,C,Means) ++ getListCI(3,C,Means) ,
-	Slice = getListCI(8,C,Means),
-	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Times),
-	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Graph),
-	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	\\\\~n",Slice).
+	Times = [T/1000 || T <- getListCI(5, C, Means)],
+	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	\\\\~n",Times).

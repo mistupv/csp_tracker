@@ -59,33 +59,57 @@ get_trace() ->
 	end.
 
 print(Message) ->
-	csp_util:send_message(printer, {print, Message, self()}),
-	receive
-		{printed, Message} -> ok
+	case printer_in_operation() of
+		true ->
+			csp_util:send_message(printer, {print, Message, self()}),
+			receive
+				{printed, Message} -> ok
+			end;
+		false -> ok
 	end.
 
 print_sync(NodeA, NodeB) ->
-	csp_util:send_message(printer, {print_sync, NodeA, NodeB, self()}),
-	receive
-		{printed_sync, NodeA, NodeB} -> ok
+	case printer_in_operation() of
+		true ->
+			csp_util:send_message(printer, {print_sync, NodeA, NodeB, self()}),
+			receive
+				{printed_sync, NodeA, NodeB} -> ok
+			end;
+		false ->
+			csp_util:send_message(printer, timestamp_update),
+			ok
 	end.
 
 remove_graph_no_ided(IdAno) ->
-	csp_util:send_message(printer, {remove_graph_no_ided, IdAno, self()}),
-	receive
-		{removed, IdAno} -> ok
+	case printer_in_operation() of
+		true ->
+			csp_util:send_message(printer, {remove_graph_no_ided, IdAno, self()}),
+			receive
+				{removed, IdAno} -> ok
+			end;
+		false -> ok
 	end.
 
 create_graph(Process, GraphParent) ->
-	csp_util:send_message(printer, {create_graph, Process, GraphParent, self()}),
-	receive
-		{created, NGraphParent} -> NGraphParent
+	case printer_in_operation() of
+		true ->
+			csp_util:send_message(printer, {create_graph, Process, GraphParent, self()}),
+			receive
+				{created, NGraphParent} -> NGraphParent
+			end;
+		false ->
+			csp_util:send_message(printer, timestamp_update),
+			GraphParent
 	end.
 
 create_graph_no_ided(Prefixing, GraphParent) ->
-	csp_util:send_message(printer, {create_graph_no_ided, Prefixing, GraphParent, self()}),
-	receive
-		{created_no_id, IdAno} -> IdAno
+	case printer_in_operation() of
+		true ->
+			csp_util:send_message(printer, {create_graph_no_ided, Prefixing, GraphParent, self()}),
+			receive
+				{created_no_id, IdAno} -> IdAno
+			end;
+		false -> 0
 	end.
 
 %%%% INTERNAL FUNCTIONS %%%%
@@ -95,6 +119,13 @@ printer_in_operation() ->
 	case os:getenv("CSP_TRACKER_MODE", "track") of
 		"track" -> true;
 		"run" -> false
+	end
+	andalso
+	case init:get_argument(csp_tracker_mode) of
+		{ok, [["track"]]} -> true;
+		{ok, [["run"]]} -> false;
+		{ok, _} -> true;
+		error -> true
 	end.
 
 %% PROCESS API %%
@@ -112,6 +143,9 @@ loop(Option,LiveSaving) ->
 %The functionality for showing non-executed code has been diasabled.
 loop(Free,PrintInternals,LiveSaving,State) ->
 	receive
+		timestamp_update ->
+			{{N,E,S,_},G,Trace} = State,
+			loop(Free,PrintInternals,LiveSaving,{{N,E,S,erlang:monotonic_time()},G,Trace});
 		{print,Event,Pid} -> 
 			EventTrace =
 				case PrintInternals of
