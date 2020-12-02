@@ -34,7 +34,10 @@ calculate_with_mean(Result,Iterations,TypeMean, FunOutput) ->
 			arithmetic -> 
 				[lists:sum(R)/ Iterations || R <- Result];
 			harmonic ->
-				[Iterations/lists:sum([(1/X) || X <- R])|| R <- Result]
+				[case lists:sum([(1/X) || X <- R, X /= 0]) of
+					 0 -> 0.0;
+					 Sum -> Iterations / Sum
+				 end || R <- Result]
 		end,
 	ResultMeans = lists:zip(Result,Means),
 	% io:format("~p\n",[ResultMeans]),
@@ -68,7 +71,7 @@ bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,[TN,TCE,TSE,TTC
 	case Result of 
 		{{{0,0,0},_,_,_,_},_} ->
 			bench_aux(File,InitialProcees,Timeout,TotalIterations,Iterations,
-				[TN,TCE,TSE,TTC,TTE,TTT,TSF]);
+				[TN,TCE,TSE,TTC,TTE,TTT,TSF,TSLC]);
 		_ ->
 			case lists:member(0,[IN,ICE,ISE,ITC,ITE,ITT,ISF]) of 
 				true -> 
@@ -89,6 +92,6 @@ printLatex(C,Means) ->
 	Times = [T/1000 || T <- Times_],
 	Graph = getListCI(1,C,Means) ++ getListCI(2,C,Means) ++ getListCI(3,C,Means) ,
 	Slice = getListCI(8,C,Means),
-	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Times),
-	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Graph),
+	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Times),
+	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ & $[_{~.2f}~~~.2f~~_{~.2f}]$ \\\\~n",Graph),
 	io:format("& $[_{~.2f}~~~.2f~~_{~.2f}]$	\\\\~n",Slice).
