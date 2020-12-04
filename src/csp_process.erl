@@ -4,13 +4,14 @@
 
 -export([
   first/3,
-  loop/5,
+  start_process/5,
   loop_root/1]).
 
 first(FirstProcess, Timeout, NoOutput) ->
   print_message("\n-> START_TRACE\n\n", NoOutput),
+  register_worker_pids_table(),
   Root = spawn(csp_process, loop_root, [get_self()]),
-  spawn(csp_process, loop, [{agent_call, {src_span, 0, 0, 0, 0, 0, 0}, FirstProcess, []}, Root, -1, [], []]),
+  spawn(csp_process, start_process, [{agent_call, {src_span, 0, 0, 0, 0, 0, 0}, FirstProcess, []}, Root, -1, [], []]),
   FinishReason =
     receive
       ok -> finished;
@@ -19,6 +20,7 @@ first(FirstProcess, Timeout, NoOutput) ->
     end,
   print_message(io_lib:format("~n<- TRACE_END (~p)~n", [FinishReason]), NoOutput),
   exit(Root, kill),
+  kill_worker_pids_and_delete_table(),
   %loop_root(get_self()),
   Steps = printer:get_steps(),
   InfoGraph =
@@ -29,6 +31,25 @@ first(FirstProcess, Timeout, NoOutput) ->
     end,
   csp_util:stop(printer),
   {InfoGraph, FinishReason, Steps}.
+
+
+register_worker_pids_table() ->
+  ets:new(worker_pids, [bag,public,named_table]).
+
+kill_worker_pids_and_delete_table() ->
+  Killed = lists:sum([
+    case is_process_alive(Pid) of
+      true -> exit(Pid, kill), 1;
+      false -> 0
+    end || {pid, Pid} <- ets:lookup(worker_pids, pid)]),
+  ets:delete(worker_pids),
+  ProcessesAlive = [Pid || Pid <- processes(), is_process_alive(Pid)],
+  io:format("There are ~p processes running, ~p have been killed.~n",
+    [length(ProcessesAlive), Killed]).
+
+register_worker_pid() ->
+  ets:insert(worker_pids, {pid, self()}).
+
 
 print_message(Msg, NoOutput) ->
   case NoOutput of
@@ -80,6 +101,9 @@ loop_root(First) ->
       loop_root(First)
   end.
 
+start_process(Process, PidParent, GraphParent, PendingSC, Renaming) ->
+  register_worker_pid(),
+  loop(Process, PidParent, GraphParent, PendingSC, Renaming).
 loop(Process, PidParent, GraphParent, PendingSC, Renaming) ->
   {NState, NPendingSC, NGraphParent} =
     case Process of
@@ -237,8 +261,8 @@ process_choice(PA, PB, PrintTau) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 process_parallelism(PA, PB, Events, PidParent, GraphParent, Renaming) ->
-  PidA = spawn(csp_process, loop, [PA, get_self(), GraphParent, [], []]),
-  PidB = spawn(csp_process, loop, [PB, get_self(), GraphParent, [], []]),
+  PidA = spawn(csp_process, start_process, [PA, get_self(), GraphParent, [], []]),
+  PidB = spawn(csp_process, start_process, [PB, get_self(), GraphParent, [], []]),
   % io:format("Parallelisme fill de ~p: ~p\n",[get_self(),{PidA,PidB}]),
   parallelism_loop(PidA, PidB, Events, PidParent, [], Renaming, {{}, {}}).
 
@@ -486,7 +510,7 @@ process_external_choice(PList0, PidParent, GraphParent, Renaming) ->
   [X || {_, X} <- lists:sort(
     [{rand:uniform(), P} || P <- PList0])],
   PidList =
-    [spawn(csp_process, loop, [P, get_self(), GraphParent, [], []])
+    [spawn(csp_process, start_process, [P, get_self(), GraphParent, [], []])
       || P <- PList],
   external_choice_loop(PidList, PidParent, Renaming).
 
