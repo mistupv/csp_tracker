@@ -9,6 +9,7 @@
 		]).
 
 -include("csp_tracker.hrl").
+-include("csp_bench_size.hrl").
 
 track(File) -> track(File,'MAIN', [all,infinity]).
 
@@ -108,6 +109,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					),
 					%io:format("Timout: ~p\n",[Timeout]),
 					TimeBeforeExecuting = erlang:monotonic_time(),
+					?LOG_MEMORY(0),
 					{{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent}, FinishReason, Steps} =
 						csp_process:first(FirstProcess,Timeout,NoOutput),
 					{NodesDigraph, EdgesDigraph} = DigraphContent,

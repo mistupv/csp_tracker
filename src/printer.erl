@@ -24,6 +24,7 @@
 ]).
 
 -include("csp_tracker.hrl").
+-include("csp_bench_size.hrl").
 
 %% PUBLIC API (process control) %%
 start_and_register_once() ->
@@ -67,6 +68,7 @@ get_steps() ->
 
 print(Message) ->
 	csp_util:send_message(printer, store_step),
+	?PRINTER_SEND_LOG_MEMORY,
 	case csp_util:tracker_mode() of
 		track ->
 			csp_util:send_message(printer, {print, Message, self()}),
@@ -145,6 +147,9 @@ loop(Free,PrintInternals,LiveSaving,State,Steps) ->
 					false -> Steps + 1
 				end,
 			loop(Free,PrintInternals,LiveSaving,State,NSteps);
+		printout_memory ->
+			?LOG_MEMORY(Steps),
+			loop(Free,PrintInternals,LiveSaving,State,Steps);
 		{print,Event,Pid} ->
 			EventTrace =
 				case PrintInternals of
