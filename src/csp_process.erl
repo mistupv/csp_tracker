@@ -11,14 +11,16 @@ first(FirstProcess, Timeout, NoOutput) ->
   print_message("\n-> START_TRACE\n\n", NoOutput),
   Root = spawn(csp_process, loop_root, [get_self()]),
   spawn(csp_process, loop, [{agent_call, {src_span, 0, 0, 0, 0, 0, 0}, FirstProcess, []}, Root, -1, [], []]),
-  receive
-    ok -> print_message("\n<- FINISH_TRACE\n", NoOutput);
-    stopped -> print_message("\n<- STOPPED_TRACE (deadlock)\n", NoOutput)
-  after
-    Timeout -> print_message("\n<- STOPPED_TRACE (timeout)\n", NoOutput)
-  end,
+  FinishReason =
+    receive
+      ok -> finished;
+      stopped -> deadlock
+    after Timeout -> timeout
+    end,
+  print_message(io_lib:format("~n<- TRACE_END (~p)~n", [FinishReason]), NoOutput),
   exit(Root, kill),
   %loop_root(get_self()),
+  Steps = printer:get_steps(),
   InfoGraph =
     try
       printer:get_info_graph()
@@ -26,7 +28,7 @@ first(FirstProcess, Timeout, NoOutput) ->
       throw:timeout -> {{{0, 0, 0, erlang:monotonic_time()}, "", ""}, {[], []}}
     end,
   csp_util:stop(printer),
-  InfoGraph.
+  {InfoGraph, FinishReason, Steps}.
 
 print_message(Msg, NoOutput) ->
   case NoOutput of
@@ -54,13 +56,8 @@ loop_root(First) ->
       First ! stopped;
     {event, Event, Channels, Pid, PidPrefixing, _, _} ->
       % io:format("Llega evento ~p\n",[Event]),
-      % Channels_ = lists:reverse(Channels),
-      Channels_ = Channels,
-      SelectedChannels_ = select_channels(Channels_, Event),
-      % SelectedChannels = lists:reverse(SelectedChannels_),
-      SelectedChannels = SelectedChannels_,
+      SelectedChannels = select_channels(Channels, Event),
       % io:format("Arriba ~p amb canals ~p\n",[Event,Channels]),
-      % io:format("CHANNELS: ~p\n",[SelectedChannels]),
       ChannelsString = create_channels_string(SelectedChannels),
       EventString =
         case ChannelsString of

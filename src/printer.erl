@@ -8,6 +8,7 @@
 	get_info_graph/0,
 	get_info_graph_no_stop/0,
 	get_trace/0,
+	get_steps/0,
 	print/1,
 	print_sync/2,
 	create_graph/2,
@@ -58,74 +59,65 @@ get_trace() ->
 		{trace, Trace} -> Trace
 	end.
 
+get_steps() ->
+	csp_util:send_message(printer, {get_steps, self()}),
+	receive
+		{steps, Steps} -> Steps
+	end.
+
 print(Message) ->
-	case printer_in_operation() of
-		true ->
+	csp_util:send_message(printer, store_step),
+	case csp_util:tracker_mode() of
+		track ->
 			csp_util:send_message(printer, {print, Message, self()}),
 			receive
 				{printed, Message} -> ok
 			end;
-		false -> ok
+		run -> ok
 	end.
 
 print_sync(NodeA, NodeB) ->
-	case printer_in_operation() of
-		true ->
+	case csp_util:tracker_mode() of
+		track ->
 			csp_util:send_message(printer, {print_sync, NodeA, NodeB, self()}),
 			receive
 				{printed_sync, NodeA, NodeB} -> ok
 			end;
-		false ->
+		run ->
 			csp_util:send_message(printer, timestamp_update),
 			ok
 	end.
 
 remove_graph_no_ided(IdAno) ->
-	case printer_in_operation() of
-		true ->
+	case csp_util:tracker_mode() of
+		track ->
 			csp_util:send_message(printer, {remove_graph_no_ided, IdAno, self()}),
 			receive
 				{removed, IdAno} -> ok
 			end;
-		false -> ok
+		run -> ok
 	end.
 
 create_graph(Process, GraphParent) ->
-	case printer_in_operation() of
-		true ->
+	case csp_util:tracker_mode() of
+		track ->
 			csp_util:send_message(printer, {create_graph, Process, GraphParent, self()}),
 			receive
 				{created, NGraphParent} -> NGraphParent
 			end;
-		false ->
+		run ->
 			csp_util:send_message(printer, timestamp_update),
 			GraphParent
 	end.
 
 create_graph_no_ided(Prefixing, GraphParent) ->
-	case printer_in_operation() of
-		true ->
+	case csp_util:tracker_mode() of
+		track ->
 			csp_util:send_message(printer, {create_graph_no_ided, Prefixing, GraphParent, self()}),
 			receive
 				{created_no_id, IdAno} -> IdAno
 			end;
-		false -> 0
-	end.
-
-%%%% INTERNAL FUNCTIONS %%%%
-
-%% Check if we should generate the graph or just run the CSP.
-printer_in_operation() ->
-	case os:getenv("CSP_TRACKER_MODE", "track") of
-		"track" -> true;
-		"run" -> false
-	end
-	andalso
-	case init:get_argument(csp_tracker_mode) of
-		{ok, [["track"]]} -> true;
-		{ok, [["run"]]} -> false;
-		{ok, _} -> true;
-		error -> true
+		run -> 0
 	end.
 
 %% PROCESS API %%
@@ -138,15 +130,22 @@ loop(Option,LiveSaving) ->
 			only_externals -> false;
 			all -> true
 		end,
-	loop(0,PrintInternals,LiveSaving,{{0,0,0,0},"",""}).
+	loop(0,PrintInternals,LiveSaving,{{0,0,0,0},"",""},0).
 
 %The functionality for showing non-executed code has been diasabled.
-loop(Free,PrintInternals,LiveSaving,State) ->
+loop(Free,PrintInternals,LiveSaving,State,Steps) ->
 	receive
 		timestamp_update ->
 			{{N,E,S,_},G,Trace} = State,
-			loop(Free,PrintInternals,LiveSaving,{{N,E,S,erlang:monotonic_time()},G,Trace});
-		{print,Event,Pid} -> 
+			loop(Free,PrintInternals,LiveSaving,{{N,E,S,erlang:monotonic_time()},G,Trace},Steps);
+		store_step ->
+			NSteps =
+				case LiveSaving of
+					true -> Steps;
+					false -> Steps + 1
+				end,
+			loop(Free,PrintInternals,LiveSaving,State,NSteps);
+		{print,Event,Pid} ->
 			EventTrace =
 				case PrintInternals of
 					true ->
@@ -168,19 +167,7 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 						Trace ++ EventTrace
 				end,
 			Pid!{printed,Event},
-			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
-		{unprint_last, Pid} -> 
-			{InfoGraph,G,Trace} = State,
-			NTrace = lists:droplast(lists:droplast(Trace)),
-			Pid!unprinted_last,
-			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
-		{unprint_last_from, Events, Pid} -> 
-			{InfoGraph,G,Trace} = State,
-			NTraceRev0 = lists:reverse(Trace),
-			NTraceRev = remove_event_from(NTraceRev0, Events),
-			NTrace = lists:reverse(NTraceRev),
-			Pid!unprinted_last,
-			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace});
+			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace},Steps);
 		{print_sync,NodeA,NodeB,Pid} ->
 			Pid!{printed_sync,NodeA,NodeB},
 			{{N,E,S,_},G,Trace} = State,
@@ -194,7 +181,7 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 					false ->
 						G ++ StringSyncEdge
 				end,
-			loop(Free,PrintInternals,LiveSaving,{{N,E,S + 1,erlang:monotonic_time()},NG,Trace});
+			loop(Free,PrintInternals,LiveSaving,{{N,E,S + 1,erlang:monotonic_time()},NG,Trace},Steps);
 		{create_graph,Process,Parent,Pid} ->
 			{Graph,NFree,NParent,TotalCreated} = create_graph_string(Process,Free,Parent),
 			{{N,E,S,_},G,Trace} = State,
@@ -220,14 +207,14 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 					2 -> {N + 1,E + 1};
 					3 -> {N + 2,E + 1}
 				end,
-			loop(NFree,PrintInternals,LiveSaving,{{NN,NE,S,erlang:monotonic_time()},NG,Trace});
+			loop(NFree,PrintInternals,LiveSaving,{{NN,NE,S,erlang:monotonic_time()},NG,Trace},Steps);
 		{create_graph_no_ided,Process,Parent,Pid} ->
 			{_Graph,IdAno} = create_graph_string_no_ided(Process,Parent),
 			Pid ! {created_no_id,IdAno},
-			loop(Free,PrintInternals,LiveSaving,State);
+			loop(Free,PrintInternals,LiveSaving,State,Steps);
 		{remove_graph_no_ided,IdAno,Pid} ->
 			Pid ! {removed,IdAno},
-			loop(Free,PrintInternals,LiveSaving,State);
+			loop(Free,PrintInternals,LiveSaving,State,Steps);
 		{info_graph,Pid} ->
 			G = digraph_get(),
 			Pid ! {info_graph, {State, G}},
@@ -236,11 +223,14 @@ loop(Free,PrintInternals,LiveSaving,State) ->
 		{info_graph_no_stop,Pid} ->
 			G = digraph_get(),
 			Pid ! {info_graph, {State, G}},
-			loop(Free,PrintInternals,LiveSaving,State);
+			loop(Free,PrintInternals,LiveSaving,State,Steps);
 		{get_trace, Pid} ->
 			{_,_,Trace} = State,
 			Pid ! {trace, Trace},
-			loop(Free,PrintInternals,LiveSaving,State);
+			loop(Free,PrintInternals,LiveSaving,State,Steps);
+		{get_steps, Pid} ->
+			Pid ! {steps, Steps},
+			loop(Free,PrintInternals,LiveSaving,State,Steps);
 		stop -> 
 			finish_computation();
 		{stop, Pid} -> 
@@ -444,16 +434,6 @@ string_channels([{'inGuard',_,List}|Tail]) ->
 string_channels([Other|Tail]) ->
 	io_lib:format("~p", [Other]) ++ string_channels(Tail);
 string_channels([]) -> "".
-
-remove_event_from([], _) -> 
-	[];
-remove_event_from([10|T], Events) -> 
-	[10 | remove_event_from(T, Events)];
-remove_event_from([E|T], Events) -> 
-	case lists:member(list_to_atom(E), Events) of 
-		true -> tl(T);
-		false -> [E | remove_event_from(T, Events)]
-	end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

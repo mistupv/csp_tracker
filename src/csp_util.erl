@@ -16,7 +16,13 @@
 -module(csp_util).
 
 %% API
--export([send_message/2,stop/1,stop_and_wait/1,register_once/2]).
+-export([
+  send_message/2,
+  stop/1,
+  stop_and_wait/1,
+  register_once/2,
+  tracker_mode/0
+]).
 
 register_once(Name, SpawnFunc) ->
   case lists:member(Name, registered()) of
@@ -45,4 +51,16 @@ stop_and_wait(ProcessName) when is_atom(ProcessName) ->
     receive stopped -> ok end
   catch
     _:_ -> ok
+  end.
+
+tracker_mode() ->
+  case list_to_atom(os:getenv("CSP_TRACKER_MODE", "track")) of
+    track ->
+      case init:get_argument(csp_tracker_mode) of
+        {ok, [["track"]]} -> track;
+        {ok, [["run"]]} -> run;
+        {ok, _} -> track;
+        error -> track
+      end;
+    run -> run
   end.

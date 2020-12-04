@@ -1,8 +1,23 @@
 #!/bin/bash
 
-array=("Buses" "Loop" "Disk" "Oven" "ProdCons" "ReadWrite" "Traffic" "ABP" "ATM" "CPU")
+
+run() {
+  export CSP_TRACKER_MODE=$1
+  escript run_bench.sh "benchmarks/$2.csp" | tee -a $3
+}
+
+# Store a reference to the code used to run this benchmark
+git_hash=$(git rev-parse HEAD)
+
+# ABP and ATM have been removed due to missing channel compatibility
+array=("Buses" "Loop" "Disk" "Oven" "ProdCons" "ReadWrite" "Traffic" "CPU")
+#array=("Buses" "Loop" "Disk" "Oven" "ProdCons" "ReadWrite" "Traffic" "ABP" "ATM" "CPU")
 mkdir -p results
 for i in "${array[@]}"; do
     echo "Start of benchmark for $i"
-    escript run_bench.sh "benchmarks/$i.csp" | tee "results/$i-$(date +%Y%m%d-%H%M%S).txt"
+    date=$(date +%Y%m%d-%H%M%S)
+    log="results/$i-$date.txt"
+    echo $git_hash > $log
+    run run   $i $log
+    run track $i $log
 done

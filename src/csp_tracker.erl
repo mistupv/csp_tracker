@@ -108,7 +108,7 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 					),
 					%io:format("Timout: ~p\n",[Timeout]),
 					TimeBeforeExecuting = erlang:monotonic_time(),
-					{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent} =
+					{{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent}, FinishReason, Steps} =
 						csp_process:first(FirstProcess,Timeout,NoOutput),
 					{NodesDigraph, EdgesDigraph} = DigraphContent,
 					% TimeBeforeTrack = erlang:monotonic_time(),
@@ -184,14 +184,14 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 								end
 						end,
 					csp_util:stop(codeserver),
-					{Result1, Result2};
+					{Result1, Result2, FinishReason, Steps};
 				_ ->
 					result_for_error()
 			end
 	end.
 
 result_for_error() ->
-	{{{0,0,0},0,0,0,0},0}.
+	{{{0,0,0},0,0,0,0},0, error, 0}.
 
 get_slice_code(Digraph, Slice, FirstProcess, File) ->
 	remove_slice_nodes(Digraph),
