@@ -9,6 +9,7 @@
 	get_info_graph_no_stop/0,
 	get_trace/0,
 	get_steps/0,
+	get_memory/0,
 	print/1,
 	print_sync/2,
 	create_graph/2,
@@ -24,7 +25,12 @@
 ]).
 
 -include("csp_tracker.hrl").
--include("csp_bench_size.hrl").
+
+-ifdef(bench_size).
+-define(PRINTER_SEND_LOG_MEMORY, catch csp_util:send_message(printer, printout_memory)).
+-else.
+-define(PRINTER_SEND_LOG_MEMORY, ok).
+-endif.
 
 %% PUBLIC API (process control) %%
 start_and_register_once() ->
@@ -64,6 +70,12 @@ get_steps() ->
 	csp_util:send_message(printer, {get_steps, self()}),
 	receive
 		{steps, Steps} -> Steps
+	end.
+
+get_memory() ->
+	csp_util:send_message(printer, {get_memory, self()}),
+	receive
+		{memory, Memory} -> Memory
 	end.
 
 print(Message) ->
@@ -132,24 +144,28 @@ loop(Option,LiveSaving) ->
 			only_externals -> false;
 			all -> true
 		end,
-	loop(0,PrintInternals,LiveSaving,{{0,0,0,0},"",""},0).
+	loop(0,PrintInternals,LiveSaving,{{0,0,0,0},"",""},0,0).
 
 %The functionality for showing non-executed code has been diasabled.
-loop(Free,PrintInternals,LiveSaving,State,Steps) ->
+loop(Free,PrintInternals,LiveSaving,State,Steps,Memory) ->
 	receive
 		timestamp_update ->
 			{{N,E,S,_},G,Trace} = State,
-			loop(Free,PrintInternals,LiveSaving,{{N,E,S,erlang:monotonic_time()},G,Trace},Steps);
+			loop(Free,PrintInternals,LiveSaving,{{N,E,S,erlang:monotonic_time()},G,Trace},Steps,Memory);
 		store_step ->
 			NSteps =
 				case LiveSaving of
 					true -> Steps;
 					false -> Steps + 1
 				end,
-			loop(Free,PrintInternals,LiveSaving,State,NSteps);
+			loop(Free,PrintInternals,LiveSaving,State,NSteps,Memory);
 		printout_memory ->
-			?LOG_MEMORY(Steps),
-			loop(Free,PrintInternals,LiveSaving,State,Steps);
+			CurrentMemory = erlang:memory(total),
+			loop(Free,PrintInternals,LiveSaving,State,Steps,
+				case CurrentMemory > Memory of
+					true -> CurrentMemory;
+					false -> Memory
+				end);
 		{print,Event,Pid} ->
 			EventTrace =
 				case PrintInternals of
@@ -172,7 +188,7 @@ loop(Free,PrintInternals,LiveSaving,State,Steps) ->
 						Trace ++ EventTrace
 				end,
 			Pid!{printed,Event},
-			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace},Steps);
+			loop(Free,PrintInternals,LiveSaving,{InfoGraph,G,NTrace},Steps,Memory);
 		{print_sync,NodeA,NodeB,Pid} ->
 			Pid!{printed_sync,NodeA,NodeB},
 			{{N,E,S,_},G,Trace} = State,
@@ -186,7 +202,7 @@ loop(Free,PrintInternals,LiveSaving,State,Steps) ->
 					false ->
 						G ++ StringSyncEdge
 				end,
-			loop(Free,PrintInternals,LiveSaving,{{N,E,S + 1,erlang:monotonic_time()},NG,Trace},Steps);
+			loop(Free,PrintInternals,LiveSaving,{{N,E,S + 1,erlang:monotonic_time()},NG,Trace},Steps,Memory);
 		{create_graph,Process,Parent,Pid} ->
 			{Graph,NFree,NParent,TotalCreated} = create_graph_string(Process,Free,Parent),
 			{{N,E,S,_},G,Trace} = State,
@@ -212,14 +228,14 @@ loop(Free,PrintInternals,LiveSaving,State,Steps) ->
 					2 -> {N + 1,E + 1};
 					3 -> {N + 2,E + 1}
 				end,
-			loop(NFree,PrintInternals,LiveSaving,{{NN,NE,S,erlang:monotonic_time()},NG,Trace},Steps);
+			loop(NFree,PrintInternals,LiveSaving,{{NN,NE,S,erlang:monotonic_time()},NG,Trace},Steps,Memory);
 		{create_graph_no_ided,Process,Parent,Pid} ->
 			{_Graph,IdAno} = create_graph_string_no_ided(Process,Parent),
 			Pid ! {created_no_id,IdAno},
-			loop(Free,PrintInternals,LiveSaving,State,Steps);
+			loop(Free,PrintInternals,LiveSaving,State,Steps,Memory);
 		{remove_graph_no_ided,IdAno,Pid} ->
 			Pid ! {removed,IdAno},
-			loop(Free,PrintInternals,LiveSaving,State,Steps);
+			loop(Free,PrintInternals,LiveSaving,State,Steps,Memory);
 		{info_graph,Pid} ->
 			G = digraph_get(),
 			Pid ! {info_graph, {State, G}},
@@ -228,14 +244,17 @@ loop(Free,PrintInternals,LiveSaving,State,Steps) ->
 		{info_graph_no_stop,Pid} ->
 			G = digraph_get(),
 			Pid ! {info_graph, {State, G}},
-			loop(Free,PrintInternals,LiveSaving,State,Steps);
+			loop(Free,PrintInternals,LiveSaving,State,Steps,Memory);
 		{get_trace, Pid} ->
 			{_,_,Trace} = State,
 			Pid ! {trace, Trace},
-			loop(Free,PrintInternals,LiveSaving,State,Steps);
+			loop(Free,PrintInternals,LiveSaving,State,Steps,Memory);
 		{get_steps, Pid} ->
 			Pid ! {steps, Steps},
-			loop(Free,PrintInternals,LiveSaving,State,Steps);
+			loop(Free,PrintInternals,LiveSaving,State,Steps,Memory);
+		{get_memory, Pid} ->
+			Pid ! {memory, Memory},
+			loop(Free,PrintInternals,LiveSaving,State,Steps,Memory);
 		stop -> 
 			finish_computation();
 		{stop, Pid} -> 

@@ -1,15 +1,11 @@
 -module(csp_bench).
 
--export([bench/4, bench_no_latex/4]).
+-export([bench/4]).
 
 bench(File,InitialProcess,Timeout,Iterations) ->
 	io:format("tracker mode: ~p~n", [csp_util:tracker_mode()]),
-	csp_tracker:track(File,InitialProcess,[Timeout,no_output]),
+	load_beams(),
 	bench_aux(File,InitialProcess,Timeout,Iterations,Iterations).
-
-bench_no_latex(File, InitialProcess,Timeout,Iterations) ->
-	csp_tracker:track(File, InitialProcess,[Timeout,no_output]),
-	bench_aux(File, InitialProcess,Timeout,Iterations,Iterations).
 
 
 %% Meaning of accumulated [T...] and next [I...] results obtained in the benchmark
@@ -27,13 +23,22 @@ bench_aux(_,_,_,_,0) ->
 	ok;
 bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations) ->
 	Result = csp_tracker:track(File,InitialProcess,[Timeout,no_output]),
-	{{{_,_,_},_,ExecTimeMicro,_,_},_,FinishReason,Steps} = Result,
-	ExecTimeMilli = ExecTimeMicro / 1000,
-	io:format("Iteration ~p (~p): ~p ~p ~.3f\n",[1 + TotalIterations - Iterations,
-		FinishReason, Steps, ExecTimeMicro, Steps / ExecTimeMilli]),
+	{{{_,_,_},_,ExecTimeMicro,_,_},_,FinishReason,Steps,MaxMemory} = Result,
+	io:format("Iteration ~p (~p): ~p ~p ~p\n",[1 + TotalIterations - Iterations,
+		FinishReason, Steps, ExecTimeMicro, MaxMemory]),
 	case ExecTimeMicro of
 		0 ->
 			bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations);
 		_ ->
 			bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations - 1)
 	end.
+
+load_beams() ->
+	code:ensure_modules_loaded([
+		'csp_tracker',
+		'csp_process',
+		'csp_parsing',
+		'csp_util',
+		'printer',
+		'codeserver'
+	]).

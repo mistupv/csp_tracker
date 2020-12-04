@@ -9,7 +9,6 @@
 		]).
 
 -include("csp_tracker.hrl").
--include("csp_bench_size.hrl").
 
 track(File) -> track(File,'MAIN', [all,infinity]).
 
@@ -108,9 +107,9 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 						end
 					),
 					%io:format("Timout: ~p\n",[Timeout]),
+					MemoryBefore = erlang:memory(total),
 					TimeBeforeExecuting = erlang:monotonic_time(),
-					?LOG_MEMORY(0),
-					{{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent}, FinishReason, Steps} =
+					{{{{N,E,S,TimeAfterExecuting},_G,Trace}, DigraphContent}, FinishReason, Steps, MaxMemory} =
 						csp_process:first(FirstProcess,Timeout,NoOutput),
 					{NodesDigraph, EdgesDigraph} = DigraphContent,
 					% TimeBeforeTrack = erlang:monotonic_time(),
@@ -186,14 +185,14 @@ track_common(File, FirstProcess,Options, FunAnswer) ->
 								end
 						end,
 					csp_util:stop(codeserver),
-					{Result1, Result2, FinishReason, Steps};
+					{Result1, Result2, FinishReason, Steps, MaxMemory - MemoryBefore};
 				_ ->
 					result_for_error()
 			end
 	end.
 
 result_for_error() ->
-	{{{0,0,0},0,0,0,0},0, error, 0}.
+	{{{0,0,0},0,0,0,0},0, error, 0, 0}.
 
 get_slice_code(Digraph, Slice, FirstProcess, File) ->
 	remove_slice_nodes(Digraph),

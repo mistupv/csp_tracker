@@ -3,7 +3,9 @@
 
 run() {
   export CSP_TRACKER_MODE=$1
-  escript run_bench.sh "benchmarks/$2.csp" | tee -a $3
+  for i in {1..1000};
+    escript run_bench.sh "benchmarks/$2.csp" 1 1000 | tee -a $3
+  done
 }
 
 # Store a reference to the code used to run this benchmark

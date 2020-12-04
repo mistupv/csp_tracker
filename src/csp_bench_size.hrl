@@ -1,7 +1,0 @@
--ifdef(bench_size).
--define(LOG_MEMORY(N), io:format("SM ~p ~p~n", [N, (erlang:memory(total))])).
--define(PRINTER_SEND_LOG_MEMORY, catch csp_util:send_message(printer, printout_memory)).
--else.
--define(LOG_MEMORY(N), true).
--define(PRINTER_SEND_LOG_MEMORY, ok).
--endif.

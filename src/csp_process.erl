@@ -23,6 +23,7 @@ first(FirstProcess, Timeout, NoOutput) ->
   kill_worker_pids_and_delete_table(),
   %loop_root(get_self()),
   Steps = printer:get_steps(),
+  MaxMemory = printer:get_memory(),
   InfoGraph =
     try
       printer:get_info_graph()
@@ -30,7 +31,7 @@ first(FirstProcess, Timeout, NoOutput) ->
       throw:timeout -> {{{0, 0, 0, erlang:monotonic_time()}, "", ""}, {[], []}}
     end,
   csp_util:stop(printer),
-  {InfoGraph, FinishReason, Steps}.
+  {InfoGraph, FinishReason, Steps, MaxMemory}.
 
 
 register_worker_pids_table() ->
