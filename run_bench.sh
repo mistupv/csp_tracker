@@ -7,6 +7,5 @@ main([String]) ->
 main([String,Iterations]) ->
   main([String,Iterations,"2000"]);
 main([String,Iterations,Timeout]) ->
-	io:format("Process limit: ~p\n",[erlang:system_info(process_limit)]),
 	File = list_to_atom(String),
 	csp_bench:bench(File,'MAIN',list_to_integer(Timeout),list_to_integer(Iterations)).

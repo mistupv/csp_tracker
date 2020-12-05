@@ -38,15 +38,11 @@ register_worker_pids_table() ->
   ets:new(worker_pids, [bag,public,named_table]).
 
 kill_worker_pids_and_delete_table() ->
-  Killed = lists:sum([
-    case is_process_alive(Pid) of
-      true -> exit(Pid, kill), 1;
-      false -> 0
-    end || {pid, Pid} <- ets:lookup(worker_pids, pid)]),
-  ets:delete(worker_pids),
-  ProcessesAlive = [Pid || Pid <- processes(), is_process_alive(Pid)],
-  io:format("There are ~p processes running, ~p have been killed.~n",
-    [length(ProcessesAlive), Killed]).
+  [case is_process_alive(Pid) of
+     true -> exit(Pid, kill);
+     false -> ok
+   end || {pid, Pid} <- ets:lookup(worker_pids, pid)],
+  ets:delete(worker_pids).
 
 register_worker_pid() ->
   ets:insert(worker_pids, {pid, self()}).

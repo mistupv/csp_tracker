@@ -3,9 +3,8 @@
 -export([bench/4]).
 
 bench(File,InitialProcess,Timeout,Iterations) ->
-	io:format("tracker mode: ~p~n", [csp_util:tracker_mode()]),
 	load_beams(),
-	bench_aux(File,InitialProcess,Timeout,Iterations,Iterations).
+	bench_aux(File,InitialProcess,Timeout,Iterations).
 
 
 %% Meaning of accumulated [T...] and next [I...] results obtained in the benchmark
@@ -19,18 +18,17 @@ bench(File,InitialProcess,Timeout,Iterations) ->
 %%  SF = SizeFile
 %%  SLC = time to slice (generate and print the slice)
 
-bench_aux(_,_,_,_,0) ->
+bench_aux(_,_,_,0) ->
 	ok;
-bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations) ->
+bench_aux(File,InitialProcess,Timeout,Iterations) ->
 	Result = csp_tracker:track(File,InitialProcess,[Timeout,no_output]),
 	{{{_,_,_},_,ExecTimeMicro,_,_},_,FinishReason,Steps,MaxMemory} = Result,
-	io:format("Iteration ~p (~p): ~p ~p ~p\n",[1 + TotalIterations - Iterations,
-		FinishReason, Steps, ExecTimeMicro, MaxMemory]),
+	io:format("(~p): ~p ~p ~p\n",[FinishReason, Steps, ExecTimeMicro, MaxMemory]),
 	case ExecTimeMicro of
 		0 ->
-			bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations);
+			bench_aux(File,InitialProcess,Timeout,Iterations);
 		_ ->
-			bench_aux(File,InitialProcess,Timeout,TotalIterations,Iterations - 1)
+			bench_aux(File,InitialProcess,Timeout,Iterations - 1)
 	end.
 
 load_beams() ->

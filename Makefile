@@ -5,7 +5,7 @@ ifeq ($(UNAME_S),Linux)
 else
 	EXEC_MODE := docker
 endif
-ERLC_FLAGS := +warn_all
+ERLC_FLAGS := +warn_all -Dbench_size
 ERLS := $(wildcard src/*.erl)
 BEAMS := $(patsubst src/%.erl,ebin/%.beam,$(ERLS))
 

@@ -3,8 +3,10 @@
 
 run() {
   export CSP_TRACKER_MODE=$1
-  for i in {1..1000};
-    escript run_bench.sh "benchmarks/$2.csp" 1 1000 | tee -a $3
+  echo "Execution mode: $CSP_TRACKER_MODE"
+  for i in {1..1000}; do
+    echo -n "Iteration $i "
+    escript run_bench.sh "benchmarks/$2.csp" 1 1000
   done
 }
 
@@ -20,6 +22,6 @@ for i in "${array[@]}"; do
     date=$(date +%Y%m%d-%H%M%S)
     log="results/$i-$date.txt"
     echo $git_hash > $log
-    run run   $i $log
-    run track $i $log
+    run run   $i | tee -a $log
+    run track $i | tee -a $log
 done
