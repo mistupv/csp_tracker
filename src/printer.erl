@@ -83,7 +83,7 @@ get_memory() ->
 	end.
 
 print(Message) ->
-	csp_util:send_message(printer, store_step),
+	csp_util:send_message(printer, {store_step, self()}),
 	receive
 		ok -> ok
 	end,
@@ -158,13 +158,14 @@ loop(Free,PrintInternals,LiveSaving,State,Steps,Memory) ->
 		timestamp_update ->
 			{{N,E,S,_},G,Trace} = State,
 			loop(Free,PrintInternals,LiveSaving,{{N,E,S,erlang:monotonic_time()},G,Trace},Steps,Memory);
-		store_step ->
+		{store_step, Pid} ->
 			NSteps =
 				case LiveSaving of
 					true -> Steps;
 					false -> Steps + 1
 				end,
 			NMemory = ?COMPUTE_NMEMORY(Memory),
+            Pid ! ok,
 			loop(Free,PrintInternals,LiveSaving,State,NSteps,NMemory);
 		{print,Event,Pid} ->
 			EventTrace =
