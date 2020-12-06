@@ -27,9 +27,13 @@
 -include("csp_tracker.hrl").
 
 -ifdef(bench_size).
--define(PRINTER_SEND_LOG_MEMORY, catch csp_util:send_message(printer, printout_memory)).
+-define(COMPUTE_NMEMORY(M),
+	New = erlang:memory(total),
+	case New > M of
+	 	true -> New; false -> M
+	end).
 -else.
--define(PRINTER_SEND_LOG_MEMORY, ok).
+-define(COMPUTE_NMEMORY(M), M).
 -endif.
 
 %% PUBLIC API (process control) %%
@@ -80,7 +84,9 @@ get_memory() ->
 
 print(Message) ->
 	csp_util:send_message(printer, store_step),
-	?PRINTER_SEND_LOG_MEMORY,
+	receive
+		ok -> ok
+	end,
 	case csp_util:tracker_mode() of
 		track ->
 			csp_util:send_message(printer, {print, Message, self()}),
@@ -158,14 +164,8 @@ loop(Free,PrintInternals,LiveSaving,State,Steps,Memory) ->
 					true -> Steps;
 					false -> Steps + 1
 				end,
-			loop(Free,PrintInternals,LiveSaving,State,NSteps,Memory);
-		printout_memory ->
-			CurrentMemory = erlang:memory(total),
-			loop(Free,PrintInternals,LiveSaving,State,Steps,
-				case CurrentMemory > Memory of
-					true -> CurrentMemory;
-					false -> Memory
-				end);
+			NMemory = ?COMPUTE_NMEMORY(Memory),
+			loop(Free,PrintInternals,LiveSaving,State,NSteps,NMemory);
 		{print,Event,Pid} ->
 			EventTrace =
 				case PrintInternals of

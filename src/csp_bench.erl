@@ -23,7 +23,7 @@ bench_aux(_,_,_,0) ->
 bench_aux(File,InitialProcess,Timeout,Iterations) ->
 	Result = csp_tracker:track(File,InitialProcess,[Timeout,no_output]),
 	{{{_,_,_},_,ExecTimeMicro,_,_},_,FinishReason,Steps,MaxMemory} = Result,
-	io:format("(~p): ~p ~p ~p\n",[FinishReason, Steps, ExecTimeMicro, MaxMemory]),
+    io:format("~p (~p): ~p ~p ~p\n",[csp_util:tracker_mode(), FinishReason, Steps, ExecTimeMicro, MaxMemory]),
 	case ExecTimeMicro of
 		0 ->
 			bench_aux(File,InitialProcess,Timeout,Iterations);
